@@ -1,13 +1,28 @@
 # ICCDDS Backend Startup Script
-# Sets correct database credentials before starting FastAPI
+# IMPORTANT: Create a .env file with your database credentials before running
+# See .env.example for template
 
 Write-Host "Starting ICCDDS Backend..." -ForegroundColor Green
 
-# Set environment variables explicitly
-$env:DATABASE_URL = "postgresql+asyncpg://iccdds:iccdds_password@localhost:5433/iccdds"
-$env:DATABASE_URL_SYNC = "postgresql://iccdds:iccdds_password@localhost:5433/iccdds"
+# Check if .env file exists
+if (-Not (Test-Path ".env")) {
+    Write-Host "ERROR: .env file not found!" -ForegroundColor Red
+    Write-Host "Please copy .env.example to .env and set your credentials" -ForegroundColor Yellow
+    Write-Host "Example: cp .env.example .env" -ForegroundColor Cyan
+    exit 1
+}
 
-Write-Host "Database URL: $env:DATABASE_URL" -ForegroundColor Cyan
+# Load .env file
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]+?)\s*=\s*(.+?)\s*$') {
+        $name = $matches[1]
+        $value = $matches[2]
+        Set-Item -Path "env:$name" -Value $value
+    }
+}
+
+Write-Host "Environment loaded from .env" -ForegroundColor Green
+Write-Host "Database: $env:DATABASE_URL" -ForegroundColor Cyan
 
 # Start uvicorn
 uvicorn app.main:app --reload --port 8000
