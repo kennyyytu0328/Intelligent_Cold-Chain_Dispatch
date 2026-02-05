@@ -43,6 +43,12 @@ ruff check .
 black .
 mypy app/
 
+# Run tests
+pytest                           # All tests
+pytest -v                        # Verbose output
+pytest -k "test_solver"          # Run tests matching pattern
+pytest --cov=app                 # With coverage report
+
 # Frontend (from ./frontend directory)
 npm install
 npm run dev      # Development server at localhost:3000
@@ -77,7 +83,7 @@ docker-compose down -v
 
 ### Key Architectural Decisions
 
-1. **Async/Sync Split**: FastAPI uses async SQLAlchemy, but Celery workers use sync SQLAlchemy because Celery tasks cannot use async. See `settings.database_url` vs `settings.database_url_sync`.
+1. **Async/Sync Split**: FastAPI uses async SQLAlchemy (asyncpg driver), but Celery workers use sync SQLAlchemy (psycopg2 driver) because Celery tasks cannot use async. See `settings.database_url` vs `settings.database_url_sync`.
 
 2. **Optimization Flow**:
    - POST `/api/v1/optimization` creates job, queues Celery task, returns `job_id` immediately (HTTP 202)

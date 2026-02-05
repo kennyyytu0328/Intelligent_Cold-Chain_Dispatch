@@ -97,7 +97,7 @@ export default function ImportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{t('import.title')}</h1>
-        <p className="text-muted-foreground mt-1">{t('import.description')}</p>
+        <p className="text-gray-600 mt-1">{t('import.description')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

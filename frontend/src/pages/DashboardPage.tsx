@@ -55,7 +55,7 @@ function StatCard({
   return (
     <Card className={cn('transition-shadow hover:shadow-md cursor-pointer', variantStyles[variant])}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-medium text-gray-700">
           {title}
         </CardTitle>
         <div className={cn('p-2 rounded-lg bg-muted/50', iconVariantStyles[variant])}>
@@ -120,7 +120,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight">
           {t('dashboard.title')}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-Gray-600">
           Monitor your cold-chain fleet and shipments in real-time
         </p>
       </div>

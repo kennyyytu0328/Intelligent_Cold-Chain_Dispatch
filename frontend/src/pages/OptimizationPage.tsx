@@ -285,8 +285,8 @@ export default function OptimizationPage() {
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Info className="h-5 w-5 text-success" />
-                <span className="text-sm text-success font-medium">
+                <Info className="h-5 w-5 text-white" />
+                <span className="text-sm text-white font-medium">
                   {t('optimization.pendingCount', { count: pendingCount })}
                 </span>
               </div>

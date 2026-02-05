@@ -64,7 +64,7 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-brand-gradient-soft">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
