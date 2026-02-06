@@ -52,7 +52,7 @@ pytest --cov=app                 # With coverage report
 # Frontend (from ./frontend directory)
 npm install
 npm run dev      # Development server at localhost:3000
-npm run build    # Production build
+npm run build    # Runs tsc && vite build (type-check then bundle)
 npm run lint     # ESLint
 ```
 
@@ -62,7 +62,7 @@ npm run lint     # ESLint
 # Full stack deployment (PostgreSQL, Redis, API, Celery, Frontend)
 docker-compose up -d
 
-# Development: only database services
+# Development: only database services (Postgres on port 5433, Redis on 6379)
 docker-compose -f docker-compose.dev.yml up -d
 
 # View logs
@@ -72,46 +72,64 @@ docker-compose logs -f
 docker-compose down -v
 ```
 
+Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflicts with local installations.
+
 ## Architecture
 
 ### Tech Stack
 - **API**: FastAPI (async) with Pydantic v2 schemas
 - **Database**: PostgreSQL + PostGIS (async via asyncpg, sync via psycopg2 for Celery)
 - **Task Queue**: Celery + Redis (optimization runs asynchronously)
-- **Solver**: Google OR-Tools for VRP optimization
-- **Frontend**: React + Vite + TypeScript + Tailwind CSS + shadcn/ui components
+- **Solver**: Google OR-Tools (ortools 9.8) for VRP optimization
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui (Radix UI primitives)
+- **Auth**: JWT (python-jose) + bcrypt password hashing, Bearer token scheme
 
 ### Key Architectural Decisions
 
-1. **Async/Sync Split**: FastAPI uses async SQLAlchemy (asyncpg driver), but Celery workers use sync SQLAlchemy (psycopg2 driver) because Celery tasks cannot use async. See `settings.database_url` vs `settings.database_url_sync`.
+1. **Async/Sync Split**: FastAPI uses async SQLAlchemy (asyncpg driver), but Celery workers use sync SQLAlchemy (psycopg2 driver) because Celery tasks cannot use async. See `settings.database_url` vs `settings.database_url_sync`. Each has separate connection pools.
 
 2. **Optimization Flow**:
    - POST `/api/v1/optimization` creates job, queues Celery task, returns `job_id` immediately (HTTP 202)
    - Celery worker runs OR-Tools solver in background
+   - A background thread in the Celery task updates progress every 10 seconds (capped at 95%)
    - Client polls GET `/api/v1/optimization/{job_id}` for results
 
 3. **Temperature Tracking**: Temperature predictions are calculated post-solution (not during OR-Tools search) because callbacks don't have full route context. See `TemperatureTracker.calculate_route_temperatures()`.
+
+4. **Frontend API Layer**: Axios client at `frontend/src/services/api.ts` uses relative base URL `/api/v1`. Vite dev server proxies to `localhost:8000`; in production, Nginx handles the proxy. Request interceptor injects Bearer token from Zustand auth store. Response interceptor catches 401s and redirects to `/login`.
+
+5. **Celery Task Configuration**: Worker prefetch multiplier is 1 (one task at a time since optimization is compute-heavy). Concurrency: 2 processes. Soft time limit: 10 min, hard limit: 11 min. Two queues: `optimization` (solver tasks) and `default`.
 
 ### Core Modules
 
 | Path | Purpose |
 |------|---------|
+| `app/main.py` | FastAPI app factory with CORS middleware, health check, router mounting |
 | `app/services/solver/solver.py` | `ColdChainVRPSolver` - main OR-Tools wrapper |
 | `app/services/solver/callbacks.py` | OR-Tools callbacks + `TemperatureTracker` |
 | `app/services/solver/data_model.py` | `VRPDataModel`, `build_vrp_data_model()` |
-| `app/services/tasks.py` | Celery task `run_optimization` |
+| `app/services/tasks.py` | Celery task `run_optimization` + sync DB engine setup |
 | `app/models/enums.py` | Domain enums with thermodynamic constants |
-| `app/core/config.py` | Pydantic Settings with all configurable parameters |
+| `app/core/config.py` | Pydantic Settings (LRU cached via `get_settings()`) |
+| `app/core/celery_app.py` | Celery app, task routing, serialization config |
+| `app/core/security.py` | JWT token creation/verification, password hashing |
+| `app/core/dependencies.py` | FastAPI dependency injection (auth, DB sessions) |
+| `app/db/database.py` | Async SQLAlchemy engine, session factory, `get_async_session()` |
+| `app/api/v1/endpoints/` | 8 REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel) |
 
-### Frontend Structure
+### Frontend Architecture
 
 | Path | Purpose |
 |------|---------|
-| `frontend/src/pages/` | Page components (Dashboard, Vehicles, Shipments, Optimization, Map) |
-| `frontend/src/components/` | Reusable UI components |
-| `frontend/src/stores/` | Zustand state management |
-| `frontend/src/services/` | API client (axios) |
-| `frontend/src/i18n/` | Internationalization (Chinese/English) |
+| `frontend/src/pages/` | Page components (Dashboard, Vehicles, Shipments, Optimization, Map, Import, Login, Depots) |
+| `frontend/src/components/ui/` | shadcn/ui components (Radix UI + Tailwind) |
+| `frontend/src/components/Layout/` | MainLayout with navigation |
+| `frontend/src/stores/authStore.ts` | Zustand store for auth state (token, user, login/logout) |
+| `frontend/src/stores/optimizationStore.ts` | Zustand store for job tracking (job_id, status, results) |
+| `frontend/src/services/api.ts` | Axios client with interceptors + typed API modules |
+| `frontend/src/i18n/` | i18next config with en.json and zh-TW.json |
+
+Frontend uses path alias `@/` → `./src/` (configured in both tsconfig and vite.config.ts).
 
 ### Thermodynamic Model
 
@@ -143,22 +161,39 @@ Constants are defined in `app/models/enums.py`:
 
 ## API Endpoints
 
-- `POST /api/v1/optimization` - Start async optimization job
+All endpoints are mounted under `/api/v1`. OpenAPI docs at `http://localhost:8000/api/v1/docs`.
+
+- `POST /api/v1/auth/login` - JWT login (form data: username/password)
+- `POST /api/v1/optimization` - Start async optimization job (returns HTTP 202)
 - `GET /api/v1/optimization/{job_id}` - Get job status/results
 - `GET /api/v1/routes/{route_id}/temperature-analysis` - Temperature predictions per stop
 - CRUD endpoints for `/vehicles`, `/shipments`, `/routes`, `/depots`
-
-API docs available at `http://localhost:8000/api/v1/docs`
+- `POST /api/v1/import/excel` - Upload Excel for batch import
+- `GET /api/v1/import/template` - Download Excel template
+- `GET /health` - Health check (outside `/api/v1` prefix)
 
 ## Configuration
 
-All settings in `app/core/config.py` can be overridden via environment variables or `.env` file. Key settings:
+All settings in `app/core/config.py` (Pydantic v2 BaseSettings) can be overridden via environment variables or `.env` file. Settings are LRU-cached via `get_settings()`.
 
-- `DATABASE_URL` / `DATABASE_URL_SYNC`
+Key settings:
+
+- `DATABASE_URL` (async, asyncpg) / `DATABASE_URL_SYNC` (sync, psycopg2 for Celery)
 - `REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`
-- `DEFAULT_SOLVER_TIME_LIMIT` (seconds)
-- `DEFAULT_AMBIENT_TEMPERATURE`, `DEFAULT_INITIAL_VEHICLE_TEMP`
+- `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES` (default: 1440 = 24h)
+- `DEFAULT_SOLVER_TIME_LIMIT` (default: 300 seconds)
+- `DEFAULT_AMBIENT_TEMPERATURE` (default: 30°C), `DEFAULT_INITIAL_VEHICLE_TEMP` (default: -5°C)
+- `AVERAGE_SPEED_KMH` (default: 30)
 - Penalty weights: `TEMP_VIOLATION_PENALTY`, `LATE_DELIVERY_PENALTY`, `VEHICLE_FIXED_COST`
+- `INFEASIBLE_COST` (default: 10,000,000) - OR-Tools hard constraint violation penalty
+
+## Database
+
+- Async engine: pool_size=10, max_overflow=20, pool_pre_ping=True
+- Sync engine (Celery): pool_size=5, max_overflow=10
+- Session config: `expire_on_commit=False`, `autocommit=False`, `autoflush=False`
+- Naming convention enforced for constraints: `ix_`, `uq_`, `ck_`, `fk_`, `pk_` prefixes
+- PostGIS extension required for geospatial operations
 
 ## Development Workflow
 
@@ -169,9 +204,15 @@ All settings in `app/core/config.py` can be overridden via environment variables
 3. Terminal 2 - API: `uvicorn app.main:app --reload --port 8000`
 4. Terminal 3 - Frontend: `cd frontend && npm run dev`
 
+Default login: `admin` / `admin123`
+
 ### Typical Development Flow
 
 1. Import test data via Excel or API
 2. Trigger optimization via POST `/api/v1/optimization`
 3. Poll job status until COMPLETED
 4. Visualize results via frontend map or `visualize_routes.py`
+
+### Production Deployment
+
+Docker Compose runs 5 services: PostgreSQL 15 (PostGIS), Redis 7, backend API, Celery worker, and frontend (Nginx). Frontend uses multi-stage build (Node 20 → Nginx alpine). Nginx proxies `/api` to the backend container, serves SPA with fallback to `index.html`, and adds security headers.
