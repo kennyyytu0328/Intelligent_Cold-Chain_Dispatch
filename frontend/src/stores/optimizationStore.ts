@@ -11,6 +11,7 @@ export interface OptimizationResult {
   feasible: boolean
   message?: string
   depot?: { lat: number; lon: number }
+  planDate?: string | null
 }
 
 export interface RouteResult {

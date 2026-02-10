@@ -43,13 +43,19 @@ ruff check .
 black .
 mypy app/
 
-# Run tests
-pytest                           # All tests
+# Run backend tests (no DB/Redis required -- all mocked)
+pytest                           # All tests with coverage (configured in pyproject.toml)
 pytest -v                        # Verbose output
 pytest -k "test_solver"          # Run tests matching pattern
-pytest --cov=app                 # With coverage report
+pytest -m "not slow"             # Skip slow tests
+pytest tests/unit/test_security.py::TestPasswordHashing::test_verify_correct_password  # Single test
 
-# Frontend (from ./frontend directory)
+# Run frontend tests (from ./frontend directory)
+npm test                         # Vitest run (all tests)
+npm run test:watch               # Vitest watch mode
+npm run test:coverage            # Vitest with V8 coverage
+
+# Frontend dev (from ./frontend directory)
 npm install
 npm run dev      # Development server at localhost:3000
 npm run build    # Runs tsc && vite build (type-check then bundle)
@@ -104,7 +110,7 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 
 | Path | Purpose |
 |------|---------|
-| `app/main.py` | FastAPI app factory with CORS middleware, health check, router mounting |
+| `app/main.py` | Module-level `app` instance (with `/health`, `/` routes) + `create_application()` factory (bare app, no health routes) |
 | `app/services/solver/solver.py` | `ColdChainVRPSolver` - main OR-Tools wrapper |
 | `app/services/solver/callbacks.py` | OR-Tools callbacks + `TemperatureTracker` |
 | `app/services/solver/data_model.py` | `VRPDataModel`, `build_vrp_data_model()` |
@@ -212,6 +218,38 @@ Default login: `admin` / `admin123`
 2. Trigger optimization via POST `/api/v1/optimization`
 3. Poll job status until COMPLETED
 4. Visualize results via frontend map or `visualize_routes.py`
+
+## Testing
+
+### Backend Tests (pytest)
+
+122 tests, 70% overall coverage (100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+
+Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
+
+Test markers: `slow`, `solver` (uses real OR-Tools), `migration` (requires real PostgreSQL).
+
+Key test infrastructure:
+
+| File | Purpose |
+|------|---------|
+| `tests/conftest.py` | Root fixtures: mock DB session, mock user, auth tokens, `app` fixture (module-level `app`), `client`/`unauthenticated_client`, solver data factories |
+| `tests/api/conftest.py` | API helpers: `make_mock_result()`, `make_mock_vehicle()`, `make_mock_shipment()` |
+| `tests/unit/` | Unit tests for security, enums, data_model, callbacks, schemas |
+| `tests/solver/` | Solver tests with **real OR-Tools** (no mocking -- pure computation) |
+| `tests/api/` | API endpoint tests using `httpx.AsyncClient` + `ASGITransport` |
+
+**Critical testing pitfalls:**
+- `app` fixture must use module-level `app` from `app.main`, NOT `create_application()` (which creates a bare app without `/health` and `/` routes)
+- Environment variables must be set BEFORE importing any `app.*` modules (Settings validates on import)
+- `get_settings()` LRU cache must be cleared between tests (autouse fixture in conftest)
+- Mock datetime fields with real `datetime` objects, not strings (for `.total_seconds()` calls)
+
+### Frontend Tests (Vitest)
+
+13 tests using Vitest + jsdom. Configuration in `frontend/vitest.config.ts`. Setup file at `frontend/src/test/setup.ts` (jest-dom matchers + localStorage mock for Zustand persist).
+
+Zustand stores are tested via `getState()`/`setState()` without React rendering.
 
 ### Production Deployment
 

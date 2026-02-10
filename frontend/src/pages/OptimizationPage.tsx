@@ -98,6 +98,7 @@ export default function OptimizationPage() {
               routeData = await routesAPI.getForMap(params.plan_date, currentResult.taskId)
             } catch (e) {
               console.error('Failed to fetch route data:', e)
+              toast.error(t('optimization.routeFetchFailed', 'Failed to load route data. Map will retry when opened.'))
             }
 
             // Fetch violation details
@@ -144,6 +145,7 @@ export default function OptimizationPage() {
               routes: mappedRoutes,
               feasible: isFeasible,
               depot: routeData?.depot || { lat: params.depot_lat, lon: params.depot_lon },
+              planDate: params.plan_date,
             })
             setOptimizing(false)
             toast.success(t('optimization.optimizationComplete'))
@@ -199,6 +201,7 @@ export default function OptimizationPage() {
         totalDistance: 0,
         totalTime: 0,
         feasible: false,
+        planDate: params.plan_date,
       })
     } catch (error) {
       toast.error(t('optimization.optimizationFailed'))

@@ -277,7 +277,13 @@
     "stopInfo": "Stop Info",
     "temperature": "Temperature",
     "arrivalTime": "Estimated Arrival",
-    "sequence": "Delivery Sequence"
+    "sequence": "Delivery Sequence",
+    "noOptimizationResult": "No Optimization Results",
+    "runOptimizationFirst": "Run an optimization first to see routes on the map.",
+    "goToOptimization": "Go to Optimization",
+    "fetchingRouteData": "Fetching route data...",
+    "fetchError": "Failed to load route data",
+    "retry": "Retry"
   },
   "settings": {
     "title": "System Settings",

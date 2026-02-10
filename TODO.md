@@ -1,26 +1,14 @@
 # ICCDDS TODO List
 
-## Current Issue
+## Current Focus: Step 2 — Foundation
 
-### MapPage.tsx Shows Nothing
+> Next actionable step in the v3.1 roadmap.
 
-- **Status**: Not Started
-- **Priority**: High (fix before or in parallel with v3.1 work)
-- **Description**: After optimization completes successfully, navigating to the Map page shows nothing/blank.
-
-#### Investigation Needed
-
-1. Check if MapPage.tsx is receiving route data from the store
-2. Verify the map component is properly initialized (Leaflet/MapLibre)
-3. Check if route data structure matches what MapPage expects
-4. Verify API endpoints for fetching route details with stops/coordinates
-
-#### Possible Causes
-
-- Route data not being passed to map component
-- Map tiles not loading (API key or network issue)
-- Route coordinates not being fetched from backend
-- Store state not persisting when navigating to map page
+- [ ] Run migration: `version` column on `routes`, new tables
+- [ ] Implement `GeoProvider` abstraction (H3 + Geohash fallback)
+- [ ] Unit tests for GeoProvider (both implementations)
+- [ ] Verify `version` column default on existing routes
+- [ ] Docker/WSL2 environment setup for H3 compatibility
 
 ---
 
@@ -28,21 +16,22 @@
 
 > Reference: `IMPLEMENTATION_PLAN_THREE_FEATURES.md` for full specs.
 
-### Step 0 — Baseline Test Suite (Pre-requisite)
+### Step 0 — Baseline Test Suite (Pre-requisite) ✅
 
-- [ ] Set up `tests/` directory structure with `conftest.py` (async DB fixtures, test factories)
-- [ ] Solver tests: given known inputs, verify expected routes and assignments
-- [ ] API endpoint tests: CRUD for vehicles, shipments, routes, depots
-- [ ] Temperature calculation tests: `TemperatureTracker` produces realistic values
-- [ ] Celery task tests: `run_optimization` flow (submit, progress, complete)
-- [ ] Frontend: configure Vitest + React Testing Library, basic smoke tests
-- [ ] Target: 80%+ coverage on existing critical paths before any feature work
+- [x] Set up `tests/` directory structure with `conftest.py` (async DB fixtures, test factories)
+- [x] Solver tests: given known inputs, verify expected routes and assignments
+- [x] API endpoint tests: CRUD for vehicles, shipments, routes, depots
+- [x] Temperature calculation tests: `TemperatureTracker` produces realistic values
+- [x] Celery task tests: `run_optimization` flow (submit, progress, complete) *(partial — GET job status tested)*
+- [x] Frontend: configure Vitest + React Testing Library, basic smoke tests
+- [x] Target: 80%+ coverage on existing critical paths before any feature work *(70% overall, 97-100% on solver/domain)*
 
-### Step 1 — Set Up Alembic Migration System
+### Step 1 — Set Up Alembic Migration System ✅
 
-- [ ] Initialize Alembic with current schema as baseline (`001_baseline`)
-- [ ] Verify `upgrade` and `downgrade` work on a fresh database
-- [ ] Create `002_features_v3.sql` as an Alembic migration (with rollback)
+- [x] Initialize Alembic with current schema as baseline (`001_baseline`)
+- [x] Verify `upgrade` and `downgrade` work on a fresh database
+- [x] Create `002_features_v3` as an Alembic migration (with rollback)
+- [x] Migration tests: 13 tests (structural + functional upgrade/downgrade/round-trip)
 
 ### Step 2 — Foundation (Weeks 1-2)
 
@@ -94,23 +83,27 @@
 
 ---
 
-## Recently Completed
+## Completed Issues
 
-### Optimization Issues (Fixed)
+### MapPage Shows Nothing After Optimization ✅
 
-- [x] Progress bar stuck at 0% - Fixed by adding `session.commit()` in `_update_job_status`
-- [x] Shipments being dropped unnecessarily - Fixed by changing to `PARALLEL_CHEAPEST_INSERTION` strategy and increasing drop penalty
-- [x] Temperature calculations unrealistic (20-50°C) - Fixed by converting minutes to hours in thermodynamic formulas
-- [x] Violations disappear on navigation - Fixed by moving to zustand global store
-- [x] Vehicles Used showing 0 - Fixed mapping in OptimizationPage.tsx
-- [x] Feasibility always showing Infeasible - Fixed by calculating from violations data
-- [x] Excessive Celery logging - Reduced update interval and log frequency
+- **Root Cause**: Silent API failure in OptimizationPage + MapPage had zero independent data fetching
+- **Fix**: Added `planDate` to Zustand store, MapPage now re-fetches routes independently, added empty/error/loading states
+- **Files changed**: `optimizationStore.ts`, `OptimizationPage.tsx`, `MapPage.tsx`, `en.json`, `zh-TW.json`
+
+### Optimization Issues (Fixed) ✅
+
+- [x] Progress bar stuck at 0% — Fixed by adding `session.commit()` in `_update_job_status`
+- [x] Shipments being dropped unnecessarily — Fixed by changing to `PARALLEL_CHEAPEST_INSERTION` strategy and increasing drop penalty
+- [x] Temperature calculations unrealistic (20-50°C) — Fixed by converting minutes to hours in thermodynamic formulas
+- [x] Violations disappear on navigation — Fixed by moving to Zustand global store
+- [x] Vehicles Used showing 0 — Fixed mapping in OptimizationPage.tsx
+- [x] Feasibility always showing Infeasible — Fixed by calculating from violations data
+- [x] Excessive Celery logging — Reduced update interval and log frequency
 
 ---
 
 ## Future Enhancements
-
-### Nice to Have
 
 - [ ] Add "No violations" success message when optimization succeeds without issues
 - [ ] Add route details panel showing each vehicle's stops

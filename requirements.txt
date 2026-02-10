@@ -22,6 +22,7 @@ sqlalchemy>=2.0.25
 asyncpg>=0.29.0  # PostgreSQL async driver
 geoalchemy2>=0.14.3  # PostGIS support
 alembic>=1.13.1  # Database migrations
+psycopg2-binary>=2.9.9  # Sync PostgreSQL driver (Alembic + Celery)
 
 # ============================================
 # Validation & Serialization

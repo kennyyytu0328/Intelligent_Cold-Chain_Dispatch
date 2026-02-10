@@ -277,7 +277,13 @@
     "stopInfo": "停靠點資訊",
     "temperature": "溫度",
     "arrivalTime": "預計到達時間",
-    "sequence": "配送順序"
+    "sequence": "配送順序",
+    "noOptimizationResult": "尚無優化結果",
+    "runOptimizationFirst": "請先執行路線優化，才能在地圖上查看路線。",
+    "goToOptimization": "前往優化頁面",
+    "fetchingRouteData": "載入路線資料中...",
+    "fetchError": "載入路線資料失敗",
+    "retry": "重試"
   },
   "settings": {
     "title": "系統設定",

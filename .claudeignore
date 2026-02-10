@@ -1,0 +1,13 @@
+# 排除大型依賴與編譯產物
+node_modules/
+dist/
+build/
+.next/
+
+# 排除 Git 歷史與日誌
+.git/
+*.log
+
+# 排除你的大專案中特定的數據夾 (例如冷鏈數據)
+data/
+cache/
