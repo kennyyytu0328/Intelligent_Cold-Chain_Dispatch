@@ -104,11 +104,20 @@ pip install -r requirements.txt
 # 2. 複製環境變數
 cp .env.example .env
 
-# 3. 初始化資料庫
-psql -h localhost -U iccdds -d iccdds -f app/db/schema.sql
+# 3. 初始化資料庫（二擇一）
+# 方式 A：全新資料庫（使用 Alembic 遷移，推薦）
+psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE iccdds;"
+psql -h localhost -p 5433 -U postgres -d iccdds -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+psql -h localhost -p 5433 -U postgres -d iccdds -f app/db/schema.sql
+alembic stamp 0001          # 標記 baseline 已套用
+alembic upgrade head        # 套用 v3.1 遷移
 
-# 4. 啟動 Celery Worker（新終端機）
-celery -A app.core.celery_app worker --loglevel=info -Q optimization,default
+# 方式 B：已有資料庫（只需套用新遷移）
+alembic stamp 0001          # 若 Alembic 尚未追蹤，先標記 baseline
+alembic upgrade head        # 套用所有新遷移
+
+# 4. 啟動 Celery Worker（新終端機，Windows 需加 --pool=solo）
+celery -A app.core.celery_app worker --loglevel=info -Q optimization,default --pool=solo
 
 # 5. 啟動 FastAPI（另一個新終端機）
 python -m uvicorn app.main:app --reload --port 8000
@@ -135,8 +144,9 @@ npm run dev
 
 | 終端機 | 指令 | 服務 |
 |--------|------|------|
-| 1 | `docker-compose -f docker-compose.dev.yml up -d` | PostgreSQL + Redis |
-| 2 | `celery -A app.core.celery_app worker --loglevel=info` | Celery Worker |
+| 1 | `docker-compose -f docker-compose.dev.yml up -d` | PostgreSQL (port 5433) + Redis |
+| - | `alembic upgrade head` | 套用資料庫遷移（首次或更新後執行） |
+| 2 | `celery -A app.core.celery_app worker --loglevel=info --pool=solo` | Celery Worker |
 | 3 | `uvicorn app.main:app --reload --port 8000` | FastAPI Backend |
 | 4 | `cd frontend && npm run dev` | React Frontend |
 
@@ -251,8 +261,12 @@ psql -h localhost -U postgres -c "CREATE DATABASE iccdds;"
 # 2. 启用 PostGIS 扩展
 psql -h localhost -U postgres -d iccdds -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 
-# 3. 导入 schema
+# 3. 导入 baseline schema
 psql -h localhost -U postgres -d iccdds -f app/db/schema.sql
+
+# 4. 套用 Alembic 迁移（v3.1 新表和字段）
+alembic stamp 0001          # 标记 baseline 已存在
+alembic upgrade head        # 套用后续迁移
 ```
 
 ### 配置环境变量
@@ -687,15 +701,16 @@ docker-compose logs -f            # 查看日誌
 # === 開發環境 ===
 # 終端機 1: 資料庫
 docker-compose -f docker-compose.dev.yml up -d
+alembic upgrade head          # 套用資料庫遷移
 
-# 終端機 2: Celery Worker
+# 終端機 2: Celery Worker（Windows 需加 --pool=solo）
 celery -A app.core.celery_app worker --loglevel=info -Q optimization,default --pool=solo
 
 # 終端機 3: 後端 API
 python -m uvicorn app.main:app --reload --port 8000
 
 # 終端機 4: 前端 UI
-cd frontend 
+cd frontend
 npm install
 npm run dev
 

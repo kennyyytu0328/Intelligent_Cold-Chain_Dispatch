@@ -24,10 +24,16 @@ celery -A app.core.celery_app worker --loglevel=info -Q optimization,default --p
 # Monitor Celery tasks (optional)
 flower -A app.core.celery_app --port=5555
 
-# Database initialization
+# Database initialization (fresh setup without Alembic)
 psql -h localhost -U postgres -c "CREATE DATABASE iccdds;"
 psql -h localhost -U postgres -d iccdds -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 psql -h localhost -U postgres -d iccdds -f app/db/schema.sql
+
+# Database migrations (Alembic)
+alembic upgrade head              # Apply all migrations
+alembic downgrade -1              # Roll back one migration
+alembic current                   # Show current revision
+alembic history                   # List all migrations
 
 # Excel import/export
 python generate_excel_template.py
@@ -137,6 +143,8 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 
 Frontend uses path alias `@/` → `./src/` (configured in both tsconfig and vite.config.ts).
 
+**Optimization → Map data flow**: OptimizationPage fetches route data via `routesAPI.getForMap()` on completion and stores it in `optimizationStore` (including `planDate`). MapPage reads from the store but can also independently re-fetch routes if the store has `taskId` + `planDate` but empty `routes` (e.g., if the initial fetch failed silently). MapPage shows an empty state with navigation to `/optimization` when no result exists.
+
 ### Thermodynamic Model
 
 Three formulas predict temperature changes along routes:
@@ -201,6 +209,17 @@ Key settings:
 - Naming convention enforced for constraints: `ix_`, `uq_`, `ck_`, `fk_`, `pk_` prefixes
 - PostGIS extension required for geospatial operations
 
+## Migrations (Alembic)
+
+Alembic is configured in `alembic.ini` with migrations in `alembic/versions/`. The env reads `DATABASE_URL_SYNC` from settings.
+
+| Migration | Purpose |
+|-----------|---------|
+| `001_baseline.py` | Baseline schema (vehicles, shipments, routes, depots, users, optimization_jobs) |
+| `002_features_v3.py` | v3.1 feature tables (route_signatures, driver_affinities, labor_records, insertion_log) + `version` column on routes |
+
+Migration tests (`tests/test_migrations.py`, marker: `migration`) require a real PostgreSQL database and verify upgrade/downgrade/round-trip integrity.
+
 ## Development Workflow
 
 ### Running All Services (Development)
@@ -249,7 +268,7 @@ Key test infrastructure:
 
 13 tests using Vitest + jsdom. Configuration in `frontend/vitest.config.ts`. Setup file at `frontend/src/test/setup.ts` (jest-dom matchers + localStorage mock for Zustand persist).
 
-Zustand stores are tested via `getState()`/`setState()` without React rendering.
+Test files: `src/lib/utils.test.ts`, `src/stores/authStore.test.ts`, `src/stores/optimizationStore.test.ts`. Zustand stores are tested via `getState()`/`setState()` without React rendering.
 
 ### Production Deployment
 

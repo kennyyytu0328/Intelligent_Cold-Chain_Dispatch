@@ -167,12 +167,17 @@ docker-compose -f docker-compose.dev.yml up -d
 # Terminal 2: Backend API
 pip install -r requirements.txt
 cp .env.example .env
-psql -h localhost -U postgres -c "CREATE DATABASE iccdds;"
-psql -h localhost -U postgres -d iccdds -f app/db/schema.sql
+# Initialize database (first time only)
+psql -h localhost -p 5433 -U postgres -c "CREATE DATABASE iccdds;"
+psql -h localhost -p 5433 -U postgres -d iccdds -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+psql -h localhost -p 5433 -U postgres -d iccdds -f app/db/schema.sql
+alembic stamp 0001            # Mark baseline as applied
+alembic upgrade head          # Apply v3.1 migrations
+# For existing databases, just run: alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 3: Celery Worker
-celery -A app.core.celery_app worker --loglevel=info -Q optimization,default
+# Terminal 3: Celery Worker (Windows: add --pool=solo)
+celery -A app.core.celery_app worker --loglevel=info -Q optimization,default --pool=solo
 
 # Terminal 4: Frontend
 cd frontend
