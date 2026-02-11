@@ -33,6 +33,11 @@ from app.models.route import Route, RouteStop
 from app.models.optimization import OptimizationJob
 from app.models.telemetry import TemperatureLog, Alert
 
+# v3.1 Models
+from app.models.geo import RouteHexStat, VehicleHexAffinity
+from app.models.insertion import InsertionAttempt
+from app.models.labor import DriverLaborLog, LaborViolation
+
 __all__ = [
     # Enums
     "InsulationGrade",
@@ -62,4 +67,10 @@ __all__ = [
     "OptimizationJob",
     "TemperatureLog",
     "Alert",
+    # v3.1 Models
+    "RouteHexStat",
+    "VehicleHexAffinity",
+    "InsertionAttempt",
+    "DriverLaborLog",
+    "LaborViolation",
 ]

@@ -146,6 +146,16 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Geospatial Indexing
+    # =========================================================================
+    h3_resolution: int = Field(
+        default=7,
+        ge=0,
+        le=15,
+        description="H3 hexagonal grid resolution (7 ≈ 1.2 km hexagons)",
+    )
+
+    # =========================================================================
     # Infeasibility Markers
     # =========================================================================
     infeasible_cost: int = Field(

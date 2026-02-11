@@ -58,6 +58,12 @@ openpyxl>=3.1.2  # Excel file format support
 requests>=2.31.0  # HTTP client for API calls
 
 # ============================================
+# Geospatial Indexing
+# ============================================
+h3>=4.0.0              # H3 hexagonal spatial index
+pygeohash>=0.8.5       # Pure-Python geohash fallback
+
+# ============================================
 # Map Visualization
 # ============================================
 folium>=0.15.1  # Interactive map generation

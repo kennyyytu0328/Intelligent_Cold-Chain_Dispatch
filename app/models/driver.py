@@ -1,10 +1,10 @@
 """
 Driver model for ICCDDS.
 """
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Date, Boolean
+from sqlalchemy import String, Date, DateTime, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -61,6 +61,31 @@ class Driver(BaseModel):
     license_expiry: Mapped[date] = mapped_column(
         Date,
         nullable=False,
+    )
+
+    # =========================================================================
+    # Labor Hour Tracking (v3.1)
+    # =========================================================================
+    accumulated_weekly_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Running total of weekly work minutes",
+    )
+
+    accumulated_daily_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Running total of daily work minutes",
+    )
+
+    weekly_reset_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when weekly accumulator was last reset",
     )
 
     # Status

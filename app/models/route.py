@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional, Any
 from uuid import UUID
 
 from geoalchemy2 import Geometry
-from sqlalchemy import String, Text, Integer, Boolean, Numeric, Enum, ForeignKey, DateTime, Date, UniqueConstraint
+from sqlalchemy import String, Text, Integer, Boolean, Numeric, Enum, ForeignKey, DateTime, Date, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -48,6 +48,31 @@ class Route(BaseModel):
         Date,
         nullable=False,
         index=True,
+    )
+
+    # =========================================================================
+    # Optimistic Locking & Smart Assignment (v3.1)
+    # =========================================================================
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+        comment="Optimistic locking version counter",
+    )
+
+    route_signature: Mapped[Optional[list]] = mapped_column(
+        JSON,
+        nullable=True,
+        default=list,
+        server_default="[]",
+        comment="H3 cell indices representing route footprint",
+    )
+
+    actual_success_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(4, 3),
+        nullable=True,
+        comment="Actual delivery success rate (0.000–1.000)",
     )
 
     # =========================================================================
