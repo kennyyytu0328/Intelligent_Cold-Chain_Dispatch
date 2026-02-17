@@ -9,6 +9,8 @@ import ShipmentsPage from '@/pages/ShipmentsPage'
 import ImportPage from '@/pages/ImportPage'
 import OptimizationPage from '@/pages/OptimizationPage'
 import MapPage from '@/pages/MapPage'
+import InsertionPage from '@/pages/InsertionPage'
+import RecommendationPage from '@/pages/RecommendationPage'
 import MainLayout from '@/components/Layout/MainLayout'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -47,6 +49,8 @@ function App() {
           <Route path="shipments" element={<ShipmentsPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="optimization" element={<OptimizationPage />} />
+          <Route path="insertion" element={<InsertionPage />} />
+          <Route path="recommendation" element={<RecommendationPage />} />
           <Route path="map" element={<MapPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

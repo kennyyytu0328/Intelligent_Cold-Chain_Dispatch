@@ -9,6 +9,8 @@ import {
   FileSpreadsheet,
   Route,
   Map,
+  PlusCircle,
+  Sparkles,
   LogOut,
   Menu,
   X,
@@ -35,6 +37,8 @@ const navItems = [
   { path: '/shipments', icon: Package, labelKey: 'nav.shipments' },
   { path: '/import', icon: FileSpreadsheet, labelKey: 'nav.import' },
   { path: '/optimization', icon: Route, labelKey: 'nav.optimization' },
+  { path: '/insertion', icon: PlusCircle, labelKey: 'nav.insertion' },
+  { path: '/recommendation', icon: Sparkles, labelKey: 'nav.recommendation' },
   { path: '/map', icon: Map, labelKey: 'nav.map' },
 ]
 

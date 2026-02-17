@@ -212,8 +212,23 @@ export const shipmentAPI = {
     return response.data
   },
   create: async (data: Omit<Shipment, 'id'>) => {
-    const response = await api.post<Shipment>('/shipments', data)
-    return response.data
+    const payload = {
+      order_number: data.customer_name,
+      delivery_address: data.address,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      weight: data.weight_kg,
+      temp_limit_upper: data.temp_max,
+      temp_limit_lower: data.temp_min || null,
+      service_duration: data.service_time_minutes,
+      priority: typeof data.priority === 'string'
+        ? { high: 90, medium: 50, low: 10 }[data.priority] ?? 50
+        : data.priority,
+      time_windows: [{ start: data.time_window_start, end: data.time_window_end }],
+      sla_tier: 'STANDARD',
+    }
+    const response = await api.post<ShipmentAPI>('/shipments', payload)
+    return mapShipmentFromAPI(response.data)
   },
   update: async (id: string, data: Partial<Shipment>) => {
     const response = await api.patch<ShipmentAPI>(`/shipments/${id}`, mapShipmentToAPI(data))
@@ -424,6 +439,141 @@ export const routesAPI = {
     }
     const response = await api.get<MapRoutesResponse>(`/routes/map-data?${params}`)
     return response.data
+  },
+}
+
+// Dynamic Insertion API
+export interface InsertionCandidate {
+  position: number
+  temp_risk_score: number
+  temp_risk_level: 'GREEN' | 'YELLOW' | 'RED'
+  delay_impact_minutes: number
+  extra_distance_meters: number
+}
+
+export interface InsertionResult {
+  insertion_id: string
+  status: 'ACCEPTED' | 'REJECTED' | 'CONFLICT'
+  position: number
+  temp_risk_score: number
+  temp_risk_level: string
+  delay_impact_minutes: number
+  extra_distance_meters: number
+  updated_route_version: number
+}
+
+export interface InsertionPreviewResponse {
+  candidates: InsertionCandidate[]
+  recommended_position: number
+  route_version: number
+}
+
+export interface InsertionHistoryEntry {
+  id: string
+  route_id: string
+  shipment_id: string
+  target_route_version: number
+  proposed_position: number
+  temp_risk_score: number | null
+  delay_impact_minutes: number | null
+  extra_distance_meters: number | null
+  status: string
+  rejection_reason: string | null
+  attempted_by: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface RouteListItem {
+  id: string
+  route_code: string
+  plan_date: string
+  vehicle_id: string
+  driver_name: string | null
+  status: string
+  total_stops: number
+  total_distance: string | null
+  total_duration: number | null
+  version?: number
+}
+
+export const insertionAPI = {
+  preview: async (routeId: string, shipmentId: string): Promise<InsertionPreviewResponse> => {
+    const response = await api.post<InsertionPreviewResponse>(
+      `/routes/${routeId}/insert/preview`,
+      { shipment_id: shipmentId }
+    )
+    return response.data
+  },
+  insert: async (routeId: string, shipmentId: string, preferredPosition?: number): Promise<InsertionResult> => {
+    const response = await api.post<InsertionResult>(
+      `/routes/${routeId}/insert`,
+      {
+        shipment_id: shipmentId,
+        preferred_position: preferredPosition ?? null,
+      }
+    )
+    return response.data
+  },
+  getHistory: async (routeId: string): Promise<{ items: InsertionHistoryEntry[]; total: number }> => {
+    const response = await api.get<{ items: InsertionHistoryEntry[]; total: number }>(
+      `/routes/${routeId}/insertion-history`
+    )
+    return response.data
+  },
+  getRoutes: async (planDate?: string): Promise<{ items: RouteListItem[]; total: number }> => {
+    const params = planDate ? `?plan_date=${planDate}` : ''
+    const response = await api.get<{ items: RouteListItem[]; total: number }>(`/routes${params}`)
+    return response.data
+  },
+}
+
+// Smart Assignment API
+export interface CellDetail {
+  h3_index: string
+  affinity: number
+  sample_size: number
+  weight: number
+}
+
+export interface VehicleRecommendation {
+  vehicle_id: string
+  license_plate: string
+  driver_name: string | null
+  affinity_score: number
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+  cell_details: CellDetail[]
+}
+
+export interface RecommendationResponse {
+  route_id: string | null
+  route_signature: string[]
+  recommendations: VehicleRecommendation[]
+}
+
+export const recommendationAPI = {
+  forRoute: async (routeId: string, topK = 5): Promise<RecommendationResponse> => {
+    const resp = await api.get(`/recommendations/${routeId}`, { params: { top_k: topK } })
+    return resp.data
+  },
+  preview: async (
+    coords: { latitude: number; longitude: number }[],
+    vehicleIds?: string[],
+    topK = 5
+  ): Promise<RecommendationResponse> => {
+    const resp = await api.post('/recommendations/preview', {
+      stop_coordinates: coords,
+      vehicle_ids: vehicleIds || null,
+      top_k: topK,
+    })
+    return resp.data
+  },
+  accept: async (
+    routeId: string,
+    vehicleId: string
+  ): Promise<{ route_id: string; vehicle_id: string; status: string }> => {
+    const resp = await api.post(`/recommendations/${routeId}/accept`, { vehicle_id: vehicleId })
+    return resp.data
   },
 }
 

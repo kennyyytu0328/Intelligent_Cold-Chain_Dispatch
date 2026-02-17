@@ -1,14 +1,8 @@
 # ICCDDS TODO List
 
-## Current Focus: Step 2 — Foundation
+## Current Focus: Step 4 — Smart Assignment
 
 > Next actionable step in the v3.1 roadmap.
-
-- [ ] Run migration: `version` column on `routes`, new tables
-- [ ] Implement `GeoProvider` abstraction (H3 + Geohash fallback)
-- [ ] Unit tests for GeoProvider (both implementations)
-- [ ] Verify `version` column default on existing routes
-- [ ] Docker/WSL2 environment setup for H3 compatibility
 
 ---
 
@@ -33,32 +27,62 @@
 - [x] Create `002_features_v3` as an Alembic migration (with rollback)
 - [x] Migration tests: 13 tests (structural + functional upgrade/downgrade/round-trip)
 
-### Step 2 — Foundation (Weeks 1-2)
+### Step 2 — Foundation (GeoProvider + v3.1 ORM Models) ✅
 
-- [ ] Run migration: `version` column on `routes`, new tables
-- [ ] Implement `GeoProvider` abstraction (H3 + Geohash fallback)
-- [ ] Unit tests for GeoProvider (both implementations)
-- [ ] Verify `version` column default on existing routes
-- [ ] Docker/WSL2 environment setup for H3 compatibility
+- [x] Add `h3>=4.0.0` and `pygeohash>=0.8.5` dependencies
+- [x] Add `h3_resolution` setting to config (default 7, range 0-15)
+- [x] Update Route model: `version`, `route_signature`, `actual_success_score` columns
+- [x] Update Driver model: `accumulated_weekly_minutes`, `accumulated_daily_minutes`, `weekly_reset_at` columns
+- [x] Create 5 new ORM models: `RouteHexStat`, `VehicleHexAffinity`, `InsertionAttempt`, `DriverLaborLog`, `LaborViolation`
+- [x] Implement `GeoProvider` ABC with `H3Provider` and `GeohashProvider` fallback + factory
+- [x] 64 new tests (35 GeoProvider + 29 model tests), all passing (186 total)
+- [x] Update STARTUP_GUIDE.md and README.md with Alembic migration steps
 
-### Step 3 — Dynamic Insertion (Weeks 3-4)
+### Step 3 — Dynamic Insertion (Weeks 3-4) ✅
 
-- [ ] Implement `IncrementalInsertionService` with optimistic locking (CAS)
-- [ ] Lightweight Temperature Proxy Model with risk scoring
-- [ ] API: `POST /routes/{id}/insert`, `POST /routes/{id}/insert/preview`
-- [ ] Concurrency tests: simulate 2 concurrent insertions, verify one gets 409
-- [ ] Temperature proxy accuracy test (compare proxy vs full TemperatureTracker)
-- [ ] Integration test: insert -> resequence stops -> verify version bump
+- [x] Implement `IncrementalInsertionService` with optimistic locking (CAS)
+- [x] Lightweight Temperature Proxy Model with risk scoring
+- [x] API: `POST /routes/{id}/insert`, `POST /routes/{id}/insert/preview`, `GET /routes/{id}/insertion-history`
+- [x] Concurrency tests: CAS conflict detection (StaleRouteException on version mismatch)
+- [x] Temperature proxy accuracy test (risk score zones GREEN/YELLOW/RED, insulation comparison)
+- [x] Integration test: insert → resequence stops → verify version bump
+- [x] 33 new tests (15 temperature proxy + 11 service + 7 API), all passing (219 total)
 
 ### Step 4 — Smart Assignment (Weeks 5-6)
 
-- [ ] Implement `PatternAnalysisService` with H3 decomposition & weighted average
-- [ ] Cold Start inheritance algorithm + confidence scoring
-- [ ] API: `GET /recommendations/{route_id}`, `POST /recommendations/preview`
-- [ ] Run `backfill_route_signatures` on existing data
-- [ ] Unit tests for affinity formula (known inputs -> expected scores)
-- [ ] Cold start test (new driver -> inherits parent cell scores)
-- [ ] Integration test: complete delivery -> affinity update -> ranking changes
+**Backend Service & API (done):**
+- [x] Implement `PatternAnalysisService` with H3 decomposition & weighted average
+- [x] Cold Start inheritance algorithm + confidence scoring
+- [x] API: `GET /recommendations/{route_id}`, `POST /recommendations/preview`, `POST /recommendations/{route_id}/accept`
+- [x] `RecommendationService` orchestration (rank vehicles, accept assignment)
+
+**Frontend UI (done):**
+- [x] `RecommendationPage.tsx` — two-tab UI (Recommend by Route, Preview by Coordinates)
+- [x] `recommendationAPI` in `api.ts` (forRoute, preview, accept)
+- [x] Nav item + route + i18n (en + zh-TW)
+
+**Data Pipeline (NOT done — blocks end-to-end testing):**
+
+> **Why it's broken now:** The "Recommend" tab returns 422 because `route_signature` is never populated.
+> The "Preview" tab (coordinates) bypasses route_signature but all vehicles return 0.500/LOW
+> because `vehicle_hex_affinities` table is empty. Without history, the cold-start fallback
+> chain bottoms out at 0.500 for every vehicle — no differentiation.
+>
+> **Quickest path to a working demo (do these two first):**
+> 1. Compute `route_signature` in `tasks.py` (~5 lines) — fixes the 422
+> 2. Write a seed script for fake `VehicleHexAffinity` data — gives meaningful rankings
+
+- [ ] **Compute `route_signature`** during optimization: in `tasks.py` `_save_routes_to_db()`, after creating RouteStops, extract each stop's lat/lng → convert to H3 cells via `GeoProvider` → save as `route.route_signature` JSON array
+- [ ] **Seed script for demo data**: create a script (e.g. `scripts/seed_affinity_data.py`) that reads existing routes + vehicles and generates realistic `VehicleHexAffinity` + `RouteHexStat` rows so rankings show varied scores
+- [ ] **Backfill existing routes**: `backfill_route_signatures` script for routes already in DB — read RouteStop PostGIS locations → H3 cells → update `route_signature`
+- [ ] **Fix `decompose_route_to_cells` fallback**: `pattern_analysis.py:60-77` has a stub that raises instead of extracting lat/lng from PostGIS geometry — implement the actual ST_X/ST_Y → H3 conversion
+- [ ] **Production affinity pipeline** (long-term): after deliveries are marked complete, compute per-vehicle per-cell affinity scores and write to `vehicle_hex_affinities`; aggregate delivery counts per cell into `route_hex_stats`
+
+**Tests (NOT done):**
+- [ ] Unit tests for affinity formula (known inputs → expected scores)
+- [ ] Cold start test (new vehicle → inherits parent cell scores via blending)
+- [ ] Integration test: complete delivery → affinity update → ranking changes
+- [ ] Test `route_signature` is populated after optimization
 
 ### Step 5 — Labor Hours (Weeks 7-8) [HIGHEST RISK]
 
