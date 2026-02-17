@@ -127,6 +127,11 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 | `app/core/security.py` | JWT token creation/verification, password hashing |
 | `app/core/dependencies.py` | FastAPI dependency injection (auth, DB sessions) |
 | `app/db/database.py` | Async SQLAlchemy engine, session factory, `get_async_session()` |
+| `app/services/geo/provider.py` | `GeoProvider` ABC + `H3Provider` / `GeohashProvider` for hex-based spatial analysis |
+| `app/models/geo.py` | `RouteHexStat`, `VehicleHexAffinity` ORM models (v3.1 pattern analysis) |
+| `app/models/insertion.py` | `InsertionAttempt` ORM model (v3.1 dynamic insertion) |
+| `app/models/labor.py` | `DriverLaborLog`, `LaborViolation` ORM models (v3.1 labor tracking) |
+| `app/models/driver.py` | Driver model with accumulated weekly/daily minutes + weekly reset |
 | `app/api/v1/endpoints/` | 8 REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel) |
 
 ### Frontend Architecture
@@ -190,6 +195,8 @@ All endpoints are mounted under `/api/v1`. OpenAPI docs at `http://localhost:800
 
 All settings in `app/core/config.py` (Pydantic v2 BaseSettings) can be overridden via environment variables or `.env` file. Settings are LRU-cached via `get_settings()`.
 
+Geo dependencies: `h3>=4.0.0` (hex spatial indexing, `h3_resolution` setting default 7), `pygeohash>=0.8.5` (fallback).
+
 Key settings:
 
 - `DATABASE_URL` (async, asyncpg) / `DATABASE_URL_SYNC` (sync, psycopg2 for Celery)
@@ -242,7 +249,7 @@ Default login: `admin` / `admin123`
 
 ### Backend Tests (pytest)
 
-122 tests, 70% overall coverage (100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+186 tests (122 baseline + 64 v3.1), 70% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
 
 Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
 
@@ -257,6 +264,8 @@ Key test infrastructure:
 | `tests/unit/` | Unit tests for security, enums, data_model, callbacks, schemas |
 | `tests/solver/` | Solver tests with **real OR-Tools** (no mocking -- pure computation) |
 | `tests/api/` | API endpoint tests using `httpx.AsyncClient` + `ASGITransport` |
+| `tests/unit/test_geo_provider.py` | GeoProvider H3/Geohash tests (35 tests) |
+| `tests/unit/test_v31_models.py` | v3.1 ORM model tests (29 tests) |
 
 **Critical testing pitfalls:**
 - `app` fixture must use module-level `app` from `app.main`, NOT `create_application()` (which creates a bare app without `/health` and `/` routes)
