@@ -3,7 +3,7 @@ API v1 router aggregation.
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, depots, vehicles, shipments, routes, optimization, geocoding, import_excel
+from app.api.v1.endpoints import auth, depots, vehicles, shipments, routes, optimization, geocoding, import_excel, insertion, recommendation
 
 api_router = APIRouter()
 
@@ -35,6 +35,12 @@ api_router.include_router(
 )
 
 api_router.include_router(
+    insertion.router,
+    prefix="/routes",
+    tags=["Dynamic Insertion"],
+)
+
+api_router.include_router(
     optimization.router,
     prefix="/optimization",
     tags=["Optimization"],
@@ -50,4 +56,10 @@ api_router.include_router(
     import_excel.router,
     prefix="/import",
     tags=["Excel Import"],
+)
+
+api_router.include_router(
+    recommendation.router,
+    prefix="/recommendations",
+    tags=["Smart Assignment"],
 )
