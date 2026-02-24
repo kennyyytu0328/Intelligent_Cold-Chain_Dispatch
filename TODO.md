@@ -72,17 +72,22 @@
 > 1. Compute `route_signature` in `tasks.py` (~5 lines) — fixes the 422
 > 2. Write a seed script for fake `VehicleHexAffinity` data — gives meaningful rankings
 
-- [ ] **Compute `route_signature`** during optimization: in `tasks.py` `_save_routes_to_db()`, after creating RouteStops, extract each stop's lat/lng → convert to H3 cells via `GeoProvider` → save as `route.route_signature` JSON array
-- [ ] **Seed script for demo data**: create a script (e.g. `scripts/seed_affinity_data.py`) that reads existing routes + vehicles and generates realistic `VehicleHexAffinity` + `RouteHexStat` rows so rankings show varied scores
-- [ ] **Backfill existing routes**: `backfill_route_signatures` script for routes already in DB — read RouteStop PostGIS locations → H3 cells → update `route_signature`
-- [ ] **Fix `decompose_route_to_cells` fallback**: `pattern_analysis.py:60-77` has a stub that raises instead of extracting lat/lng from PostGIS geometry — implement the actual ST_X/ST_Y → H3 conversion
+- [x] **Fix `decompose_route_to_cells` fallback**: replaced stub with actual ST_Y/ST_X → H3 conversion in `pattern_analysis.py`
+- [x] **Compute `route_signature`** during optimization: in `tasks.py` `_save_routes()`, after creating RouteStops, converts stop lat/lng to H3 cells via `GeoProvider` and saves as `route.route_signature`
+- [x] **Seed script for demo data**: `scripts/seed_affinity_data.py` reads existing routes + vehicles and generates realistic `VehicleHexAffinity` + `RouteHexStat` rows (supports `--dry-run`, `--clear`)
+- [x] **Backfill existing routes**: `scripts/backfill_route_signatures.py` reads RouteStop PostGIS locations → H3 cells → updates `route_signature` (supports `--dry-run`, `--batch-size`)
 - [ ] **Production affinity pipeline** (long-term): after deliveries are marked complete, compute per-vehicle per-cell affinity scores and write to `vehicle_hex_affinities`; aggregate delivery counts per cell into `route_hex_stats`
 
-**Tests (NOT done):**
-- [ ] Unit tests for affinity formula (known inputs → expected scores)
-- [ ] Cold start test (new vehicle → inherits parent cell scores via blending)
-- [ ] Integration test: complete delivery → affinity update → ranking changes
-- [ ] Test `route_signature` is populated after optimization
+**Tests:**
+- [x] Unit tests for affinity formula (known inputs → expected scores) — `TestCalculateVehicleAffinity` (4 tests)
+- [x] Cold start test (new vehicle → inherits parent cell scores via blending) — `TestColdStartFallback` (5 tests)
+- [x] Confidence scoring tests — `TestConfidence` (4 tests)
+- [x] Decompose coordinates tests — `TestDecomposeCoordinatesToCells` (3 tests)
+- [x] Decompose route DB path tests — `TestDecomposeRouteToCells` (5 tests)
+- [x] Test `route_signature` is populated after optimization — `TestRouteSignature` (4 tests)
+- [x] Recommendation service orchestration tests — 17 tests in `test_recommendation_service.py`
+- [x] Recommendation API tests — 10 tests in `test_recommendation_api.py`
+- [ ] Integration test: complete delivery → affinity update → ranking changes *(deferred — requires production affinity pipeline)*
 
 ### Step 5 — Labor Hours (Weeks 7-8) [HIGHEST RISK]
 

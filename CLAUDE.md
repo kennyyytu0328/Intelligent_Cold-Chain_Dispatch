@@ -249,7 +249,7 @@ Default login: `admin` / `admin123`
 
 ### Backend Tests (pytest)
 
-186 tests (122 baseline + 64 v3.1), 70% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+266 tests (122 baseline + 144 v3.1), 75% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
 
 Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
 

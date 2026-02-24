@@ -324,3 +324,107 @@ class TestConfidence:
     def test_empty_cells_low(self):
         """Empty details -> LOW."""
         assert PatternAnalysisService._calculate_confidence([]) == "LOW"
+
+
+# =========================================================================
+# TestDecomposeRouteToCells
+# =========================================================================
+class TestDecomposeRouteToCells:
+    """Tests for decompose_route_to_cells (DB path)."""
+
+    async def test_uses_precomputed_signature(self, service, mock_session):
+        """When route has route_signature, returns it directly without querying stops."""
+        route_id = uuid4()
+        mock_route = MagicMock()
+        mock_route.route_signature = ["cell_a", "cell_b", "cell_c"]
+
+        route_result = MagicMock()
+        route_result.scalar_one_or_none.return_value = mock_route
+        mock_session.execute = AsyncMock(return_value=route_result)
+
+        cells = await service.decompose_route_to_cells(route_id)
+
+        assert cells == ["cell_a", "cell_b", "cell_c"]
+        # Only one execute call (route query), no stops query
+        assert mock_session.execute.await_count == 1
+
+    async def test_falls_back_to_stops(self, service, mock_session, mock_geo):
+        """When route_signature is None, decomposes from RouteStop locations."""
+        route_id = uuid4()
+        mock_route = MagicMock()
+        mock_route.route_signature = None
+
+        route_result = MagicMock()
+        route_result.scalar_one_or_none.return_value = mock_route
+
+        # Simulate PostGIS ST_Y/ST_X returning lat/lng rows
+        stop_row_1 = MagicMock()
+        stop_row_1.lat = 25.0
+        stop_row_1.lng = 121.5
+        stop_row_2 = MagicMock()
+        stop_row_2.lat = 25.1
+        stop_row_2.lng = 121.6
+
+        stops_result = MagicMock()
+        stops_result.all.return_value = [stop_row_1, stop_row_2]
+
+        mock_session.execute = AsyncMock(
+            side_effect=[route_result, stops_result]
+        )
+
+        cells = await service.decompose_route_to_cells(route_id)
+
+        assert cells == ["cell_25.0_121.5", "cell_25.1_121.6"]
+        assert mock_session.execute.await_count == 2
+
+    async def test_route_not_found(self, service, mock_session):
+        """Raises ValueError when route does not exist."""
+        route_result = MagicMock()
+        route_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=route_result)
+
+        with pytest.raises(ValueError, match="not found"):
+            await service.decompose_route_to_cells(uuid4())
+
+    async def test_no_signature_no_stops_raises(self, service, mock_session):
+        """Raises InvalidRouteSignatureException when no signature and no stops."""
+        route_id = uuid4()
+        mock_route = MagicMock()
+        mock_route.route_signature = None
+
+        route_result = MagicMock()
+        route_result.scalar_one_or_none.return_value = mock_route
+
+        stops_result = MagicMock()
+        stops_result.all.return_value = []
+
+        mock_session.execute = AsyncMock(
+            side_effect=[route_result, stops_result]
+        )
+
+        with pytest.raises(InvalidRouteSignatureException, match="no signature"):
+            await service.decompose_route_to_cells(route_id)
+
+    async def test_empty_list_signature_falls_back(self, service, mock_session, mock_geo):
+        """Empty list signature (falsy) triggers stop-based fallback."""
+        route_id = uuid4()
+        mock_route = MagicMock()
+        mock_route.route_signature = []  # Falsy empty list
+
+        route_result = MagicMock()
+        route_result.scalar_one_or_none.return_value = mock_route
+
+        stop_row = MagicMock()
+        stop_row.lat = 25.0
+        stop_row.lng = 121.5
+
+        stops_result = MagicMock()
+        stops_result.all.return_value = [stop_row]
+
+        mock_session.execute = AsyncMock(
+            side_effect=[route_result, stops_result]
+        )
+
+        cells = await service.decompose_route_to_cells(route_id)
+
+        assert cells == ["cell_25.0_121.5"]
