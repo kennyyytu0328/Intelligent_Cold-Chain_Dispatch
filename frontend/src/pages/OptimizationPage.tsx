@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -80,22 +80,31 @@ export default function OptimizationPage() {
     }
   }, [activeDepots, depotInputMode, selectedDepotId])
 
+  // Keep a ref to the current task ID so the polling interval doesn't go stale
+  const taskIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    taskIdRef.current = currentResult?.taskId ?? null
+  }, [currentResult?.taskId])
+
   // Poll for optimization status
   useEffect(() => {
     let intervalId: number | null = null
 
-    if (isOptimizing && currentResult?.taskId) {
-      intervalId = setInterval(async () => {
+    if (isOptimizing) {
+      intervalId = window.setInterval(async () => {
+        const taskId = taskIdRef.current
+        if (!taskId) return
+
         try {
-          const status = await optimizationAPI.getStatus(currentResult.taskId, params.max_iterations)
+          const status = await optimizationAPI.getStatus(taskId, params.max_iterations)
 
           if (status.status === 'completed') {
-            const result = await optimizationAPI.getResult(currentResult.taskId)
+            const result = await optimizationAPI.getResult(taskId)
 
             // Fetch actual route data for map visualization
             let routeData = null
             try {
-              routeData = await routesAPI.getForMap(params.plan_date, currentResult.taskId)
+              routeData = await routesAPI.getForMap(params.plan_date, taskId)
             } catch (e) {
               console.error('Failed to fetch route data:', e)
               toast.error(t('optimization.routeFetchFailed', 'Failed to load route data. Map will retry when opened.'))
@@ -104,7 +113,7 @@ export default function OptimizationPage() {
             // Fetch violation details
             let violationData = null
             try {
-              violationData = await optimizationAPI.getViolations(currentResult.taskId)
+              violationData = await optimizationAPI.getViolations(taskId)
               setViolations(violationData)
             } catch (e) {
               console.error('Failed to fetch violations:', e)
@@ -137,7 +146,7 @@ export default function OptimizationPage() {
               (!violationData || violationData.summary.total_temp_violations === 0)
 
             setResult({
-              ...currentResult,
+              taskId,
               status: 'completed',
               progress: 100,
               totalDistance: result.totalDistance,
@@ -151,9 +160,13 @@ export default function OptimizationPage() {
             toast.success(t('optimization.optimizationComplete'))
           } else if (status.status === 'failed') {
             setResult({
-              ...currentResult,
+              taskId,
               status: 'failed',
               progress: 0,
+              routes: [],
+              totalDistance: 0,
+              totalTime: 0,
+              feasible: false,
               message: status.error,
             })
             setOptimizing(false)
@@ -170,7 +183,7 @@ export default function OptimizationPage() {
     return () => {
       if (intervalId) clearInterval(intervalId)
     }
-  }, [isOptimizing, currentResult?.taskId])
+  }, [isOptimizing])
 
   const handleStartOptimization = async () => {
     // Validate depot selection
@@ -190,9 +203,14 @@ export default function OptimizationPage() {
     }
 
     try {
-      setOptimizing(true)
-      setViolations(null)  // Clear previous violations
+      // Stop polling first so the interval is cleared before state changes
+      setOptimizing(false)
+      // Reset previous state before starting new optimization
+      setResult(null)
+      setViolations(null)
       const { task_id } = await optimizationAPI.start(params)
+      // Set ref immediately so polling has the task ID on first tick
+      taskIdRef.current = task_id
       setResult({
         taskId: task_id,
         status: 'running',
@@ -203,6 +221,7 @@ export default function OptimizationPage() {
         feasible: false,
         planDate: params.plan_date,
       })
+      setOptimizing(true)
     } catch (error) {
       toast.error(t('optimization.optimizationFailed'))
       setOptimizing(false)

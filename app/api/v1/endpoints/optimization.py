@@ -119,8 +119,13 @@ async def create_optimization_job(
 
     session.add(job)
     await session.flush()
+    # Commit the job record BEFORE dispatching to Celery.
+    # Without this, a warm Celery worker can start and run the RUNNING-status
+    # UPDATE before FastAPI commits, leaving the job stuck in PENDING for the
+    # entire optimization (progress bar frozen at 2% on subsequent runs).
+    await session.commit()
 
-    # Dispatch Celery task
+    # Dispatch Celery task (job is now committed and visible to the worker)
     celery_task = run_optimization.delay(
         job_id=str(job_id),
         plan_date_str=request.plan_date.isoformat(),
