@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.database import get_async_session
 from app.models import Route, RouteStop, RouteStatus
+from app.services.recommendation.affinity_update import AffinityUpdateService
 from app.schemas.route import (
     RouteResponse,
     RouteListResponse,
@@ -307,7 +308,7 @@ async def update_route_status(
     status: RouteStatus,
     session: AsyncSession = Depends(get_async_session),
 ):
-    """Update route status."""
+    """Update route status. Triggers affinity pipeline on COMPLETED."""
     result = await session.execute(
         select(Route).where(Route.id == route_id)
     )
@@ -317,6 +318,11 @@ async def update_route_status(
         raise HTTPException(status_code=404, detail="Route not found")
 
     route.status = status
+
+    if status == RouteStatus.COMPLETED:
+        svc = AffinityUpdateService(session)
+        await svc.process_completed_route(route)
+
     await session.flush()
 
     return {"id": str(route.id), "status": route.status.value}
