@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.celery_app import celery_app
+from app.services.geo.provider import get_geo_provider
 from app.services.solver import (
     ColdChainVRPSolver,
     build_vrp_data_model,
@@ -461,6 +462,18 @@ def _save_routes(
                 travel_time_from_prev=stop.travel_time_from_prev_minutes,
             )
             session.add(route_stop)
+
+        # Compute route_signature: convert stop coordinates to H3 cells
+        geo = get_geo_provider()
+        resolution = settings.h3_resolution
+        seen: set[str] = set()
+        cells: list[str] = []
+        for stop in route_result.stops:
+            cell = geo.lat_lng_to_cell(stop.latitude, stop.longitude, resolution)
+            if cell not in seen:
+                seen.add(cell)
+                cells.append(cell)
+        route.route_signature = cells
 
         route_ids.append(str(route_id))
 

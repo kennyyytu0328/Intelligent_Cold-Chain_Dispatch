@@ -351,11 +351,15 @@
     "resultsReady": "推薦結果已就緒",
     "fetchFailed": "取得推薦結果失敗",
     "noResults": "找不到匹配的車輛",
-    "enterCoordinates": "輸入停靠點座標",
-    "latitude": "緯度",
-    "longitude": "經度",
+    "enterAddresses": "輸入配送地址",
+    "addressPlaceholder": "輸入地址（例如：台北101, 信義路五段7號）",
+    "geocode": "地理編碼",
+    "geocoding": "編碼中...",
+    "geocoded": "已解析",
+    "geocodeFailed": "此地址地理編碼失敗",
     "addRow": "新增停靠點",
-    "analyze": "分析"
+    "analyze": "分析",
+    "needAtLeastTwo": "請先解析至少 2 個地址再進行分析"
   },
   "errors": {
     "networkError": "網路連線錯誤",

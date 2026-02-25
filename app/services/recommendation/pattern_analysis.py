@@ -57,24 +57,24 @@ class PatternAnalysisService:
         if route.route_signature:
             return list(route.route_signature)
 
-        # Fallback: decompose from stops
+        # Fallback: decompose from stops using PostGIS ST_X/ST_Y
         stops_result = await self._session.execute(
-            select(RouteStop)
+            select(
+                func.ST_Y(RouteStop.location).label("lat"),
+                func.ST_X(RouteStop.location).label("lng"),
+            )
             .where(RouteStop.route_id == route_id)
             .order_by(RouteStop.sequence_number)
         )
-        stops = stops_result.scalars().all()
+        rows = stops_result.all()
 
-        if not stops:
+        if not rows:
             raise InvalidRouteSignatureException(
                 f"Route {route_id} has no signature and no stops"
             )
 
-        # Note: In production, we'd extract lat/lng from the PostGIS geometry.
-        # For now, this returns the route_signature if available.
-        raise InvalidRouteSignatureException(
-            f"Route {route_id} has no route_signature"
-        )
+        coords = [(float(row.lat), float(row.lng)) for row in rows]
+        return self.decompose_coordinates_to_cells(coords)
 
     def decompose_coordinates_to_cells(
         self, coords: list[tuple[float, float]]

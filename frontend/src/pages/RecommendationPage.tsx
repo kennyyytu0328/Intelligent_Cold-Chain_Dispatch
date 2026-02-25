@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import {
   insertionAPI,
   recommendationAPI,
+  geocodingAPI,
   RouteListItem,
   VehicleRecommendation,
   RecommendationResponse,
@@ -56,20 +57,34 @@ function ConfidenceBadge({ level }: { level: string }) {
   )
 }
 
-function AffinityScore({ score }: { score: number }) {
+function AffinityScore({ score }: { score: number | string }) {
+  const numScore = typeof score === 'string' ? parseFloat(score) : score
   const color =
-    score > 0.7
+    numScore > 0.7
       ? 'text-emerald-600 dark:text-emerald-400'
-      : score >= 0.4
+      : numScore >= 0.4
         ? 'text-amber-600 dark:text-amber-400'
         : 'text-red-600 dark:text-red-400'
-  return <span className={`font-mono font-semibold ${color}`}>{score.toFixed(3)}</span>
+  return <span className={`font-mono font-semibold ${color}`}>{numScore.toFixed(3)}</span>
 }
 
-interface CoordRow {
-  latitude: string
-  longitude: string
+interface AddressRow {
+  address: string
+  latitude: number | null
+  longitude: number | null
+  displayName: string | null
+  isGeocoding: boolean
+  error: string | null
 }
+
+const emptyRow = (): AddressRow => ({
+  address: '',
+  latitude: null,
+  longitude: null,
+  displayName: null,
+  isGeocoding: false,
+  error: null,
+})
 
 export default function RecommendationPage() {
   const { t } = useTranslation()
@@ -77,10 +92,7 @@ export default function RecommendationPage() {
   const [selectedRouteId, setSelectedRouteId] = useState<string>('')
   const [result, setResult] = useState<RecommendationResponse | null>(null)
   const [previewResult, setPreviewResult] = useState<RecommendationResponse | null>(null)
-  const [coords, setCoords] = useState<CoordRow[]>([
-    { latitude: '', longitude: '' },
-    { latitude: '', longitude: '' },
-  ])
+  const [rows, setRows] = useState<AddressRow[]>([emptyRow(), emptyRow()])
 
   // Fetch routes (reuse insertionAPI.getRoutes)
   const { data: routesData, isLoading: routesLoading } = useQuery({
@@ -103,10 +115,10 @@ export default function RecommendationPage() {
   // Preview mutation
   const previewMutation = useMutation({
     mutationFn: () => {
-      const parsed = coords
-        .filter((c) => c.latitude && c.longitude)
-        .map((c) => ({ latitude: Number(c.latitude), longitude: Number(c.longitude) }))
-      return recommendationAPI.preview(parsed)
+      const resolved = rows
+        .filter((r) => r.latitude !== null && r.longitude !== null)
+        .map((r) => ({ latitude: r.latitude!, longitude: r.longitude! }))
+      return recommendationAPI.preview(resolved)
     },
     onSuccess: (data) => {
       setPreviewResult(data)
@@ -130,18 +142,55 @@ export default function RecommendationPage() {
 
   const routes: RouteListItem[] = routesData?.items || []
 
-  const validCoords = coords.filter((c) => c.latitude && c.longitude)
+  const resolvedCount = rows.filter((r) => r.latitude !== null).length
 
-  const updateCoord = (index: number, field: keyof CoordRow, value: string) => {
-    setCoords((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+  const updateAddress = (index: number, address: string) => {
+    setRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? { ...row, address, latitude: null, longitude: null, displayName: null, error: null }
+          : row
+      )
+    )
   }
 
-  const addCoordRow = () => {
-    setCoords((prev) => [...prev, { latitude: '', longitude: '' }])
+  const geocodeRow = async (index: number) => {
+    const row = rows[index]
+    if (!row.address.trim()) return
+
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, isGeocoding: true, error: null } : r)))
+
+    try {
+      const result = await geocodingAPI.geocode(row.address.trim())
+      setRows((prev) =>
+        prev.map((r, i) =>
+          i === index
+            ? {
+                ...r,
+                latitude: Number(result.latitude),
+                longitude: Number(result.longitude),
+                displayName: result.display_name,
+                isGeocoding: false,
+                error: null,
+              }
+            : r
+        )
+      )
+    } catch {
+      setRows((prev) =>
+        prev.map((r, i) =>
+          i === index ? { ...r, isGeocoding: false, error: t('recommendation.geocodeFailed') } : r
+        )
+      )
+    }
   }
 
-  const removeCoordRow = (index: number) => {
-    setCoords((prev) => prev.filter((_, i) => i !== index))
+  const addRow = () => {
+    setRows((prev) => [...prev, emptyRow()])
+  }
+
+  const removeRow = (index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index))
   }
 
   const renderRecommendationTable = (
@@ -309,52 +358,74 @@ export default function RecommendationPage() {
         <TabsContent value="preview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">{t('recommendation.enterCoordinates')}</CardTitle>
+              <CardTitle className="text-lg">{t('recommendation.enterAddresses')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                {coords.map((row, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground w-6">#{idx + 1}</span>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder={t('recommendation.latitude')}
-                      value={row.latitude}
-                      onChange={(e) => updateCoord(idx, 'latitude', e.target.value)}
-                      className="w-40"
-                    />
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder={t('recommendation.longitude')}
-                      value={row.longitude}
-                      onChange={(e) => updateCoord(idx, 'longitude', e.target.value)}
-                      className="w-40"
-                    />
-                    {coords.length > 2 && (
+              <div className="space-y-3">
+                {rows.map((row, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
+                      <Input
+                        placeholder={t('recommendation.addressPlaceholder')}
+                        value={row.address}
+                        onChange={(e) => updateAddress(idx, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') geocodeRow(idx)
+                        }}
+                        className="flex-1"
+                      />
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeCoordRow(idx)}
-                        className="h-8 w-8"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => geocodeRow(idx)}
+                        disabled={!row.address.trim() || row.isGeocoding}
+                        className="shrink-0"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {row.isGeocoding ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : null}
+                        {row.isGeocoding ? t('recommendation.geocoding') : t('recommendation.geocode')}
                       </Button>
+                      {rows.length > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(idx)}
+                          className="h-8 w-8 shrink-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    {row.displayName && (
+                      <div className="ml-8 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        <span className="font-mono">
+                          {row.latitude?.toFixed(4)}, {row.longitude?.toFixed(4)}
+                        </span>
+                        <span className="text-muted-foreground truncate">({row.displayName})</span>
+                      </div>
+                    )}
+                    {row.error && (
+                      <div className="ml-8 flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+                        <XCircle className="h-3 w-3 shrink-0" />
+                        <span>{row.error}</span>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-3">
-                <Button variant="outline" size="sm" onClick={addCoordRow}>
+              <div className="flex gap-3 items-center">
+                <Button variant="outline" size="sm" onClick={addRow}>
                   <Plus className="mr-1 h-3 w-3" />
                   {t('recommendation.addRow')}
                 </Button>
 
                 <Button
                   onClick={() => previewMutation.mutate()}
-                  disabled={validCoords.length < 2 || previewMutation.isPending}
+                  disabled={resolvedCount < 2 || previewMutation.isPending}
                 >
                   {previewMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -363,6 +434,12 @@ export default function RecommendationPage() {
                   )}
                   {t('recommendation.analyze')}
                 </Button>
+
+                {resolvedCount < 2 && rows.some((r) => r.address.trim()) && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('recommendation.needAtLeastTwo')}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>

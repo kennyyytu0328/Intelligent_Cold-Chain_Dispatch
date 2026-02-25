@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -184,8 +185,10 @@ class AffinityUpdateService:
     # ── Helpers ──────────────────────────────────────────────────────────
 
     @staticmethod
-    def _extract_cells(route_signature: str) -> List[str]:
-        """Split a route_signature into individual H3 cell strings."""
+    def _extract_cells(route_signature) -> List[str]:
+        """Extract H3 cells from route_signature (JSON list or string)."""
         if not route_signature:
             return []
-        return [cell.strip() for cell in route_signature.split(",") if cell.strip()]
+        if isinstance(route_signature, list):
+            return [str(c).strip() for c in route_signature if c]
+        return [c.strip() for c in str(route_signature).split(",") if c.strip()]

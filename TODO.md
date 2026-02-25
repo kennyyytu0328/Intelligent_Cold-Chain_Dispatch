@@ -1,8 +1,8 @@
 # ICCDDS TODO List
 
-## Current Focus: Step 4 — Smart Assignment
+## Current Focus: Step 5 — Labor Hours
 
-> Next actionable step in the v3.1 roadmap.
+> Step 4 is fully complete. Next: implement LaborConstraintsService with driver hour tracking, compliance APIs, and nightly reconciliation.
 
 ---
 
@@ -57,26 +57,18 @@
 - [x] `RecommendationService` orchestration (rank vehicles, accept assignment)
 
 **Frontend UI (done):**
-- [x] `RecommendationPage.tsx` — two-tab UI (Recommend by Route, Preview by Coordinates)
-- [x] `recommendationAPI` in `api.ts` (forRoute, preview, accept)
+- [x] `RecommendationPage.tsx` — two-tab UI (Recommend by Route, Preview by Addresses)
+- [x] `recommendationAPI` + `geocodingAPI` in `api.ts` (forRoute, preview, accept, geocode)
 - [x] Nav item + route + i18n (en + zh-TW)
+- [x] **Preview tab redesigned**: replaced raw lat/lng inputs with address entry + per-row Geocode button (Nominatim), shows resolved coordinates inline, Enter key triggers geocode
 
-**Data Pipeline (NOT done — blocks end-to-end testing):**
-
-> **Why it's broken now:** The "Recommend" tab returns 422 because `route_signature` is never populated.
-> The "Preview" tab (coordinates) bypasses route_signature but all vehicles return 0.500/LOW
-> because `vehicle_hex_affinities` table is empty. Without history, the cold-start fallback
-> chain bottoms out at 0.500 for every vehicle — no differentiation.
->
-> **Quickest path to a working demo (do these two first):**
-> 1. Compute `route_signature` in `tasks.py` (~5 lines) — fixes the 422
-> 2. Write a seed script for fake `VehicleHexAffinity` data — gives meaningful rankings
+**Data Pipeline (done):**
 
 - [x] **Fix `decompose_route_to_cells` fallback**: replaced stub with actual ST_Y/ST_X → H3 conversion in `pattern_analysis.py`
 - [x] **Compute `route_signature`** during optimization: in `tasks.py` `_save_routes()`, after creating RouteStops, converts stop lat/lng to H3 cells via `GeoProvider` and saves as `route.route_signature`
 - [x] **Seed script for demo data**: `scripts/seed_affinity_data.py` reads existing routes + vehicles and generates realistic `VehicleHexAffinity` + `RouteHexStat` rows (supports `--dry-run`, `--clear`)
 - [x] **Backfill existing routes**: `scripts/backfill_route_signatures.py` reads RouteStop PostGIS locations → H3 cells → updates `route_signature` (supports `--dry-run`, `--batch-size`)
-- [ ] **Production affinity pipeline** (long-term): after deliveries are marked complete, compute per-vehicle per-cell affinity scores and write to `vehicle_hex_affinities`; aggregate delivery counts per cell into `route_hex_stats`
+- [x] **Production affinity pipeline**: `AffinityUpdateService` triggers on route COMPLETED status, computes success score via running average, upserts `VehicleHexAffinity` + `RouteHexStat` per H3 cell — 14 new tests (10 unit + 2 integration + 2 API trigger)
 
 **Tests:**
 - [x] Unit tests for affinity formula (known inputs → expected scores) — `TestCalculateVehicleAffinity` (4 tests)
@@ -87,7 +79,11 @@
 - [x] Test `route_signature` is populated after optimization — `TestRouteSignature` (4 tests)
 - [x] Recommendation service orchestration tests — 17 tests in `test_recommendation_service.py`
 - [x] Recommendation API tests — 10 tests in `test_recommendation_api.py`
-- [ ] Integration test: complete delivery → affinity update → ranking changes *(deferred — requires production affinity pipeline)*
+- [x] Integration test: complete delivery → affinity update → ranking changes — `test_affinity_integration.py` (2 tests) + `test_affinity_trigger.py` (2 tests)
+
+### Step 4 Status: ✅ COMPLETE (293 backend tests, 76% coverage)
+
+---
 
 ### Step 5 — Labor Hours (Weeks 7-8) [HIGHEST RISK]
 

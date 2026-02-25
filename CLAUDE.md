@@ -44,6 +44,13 @@ python visualize_routes.py 2024-01-30           # With road routing
 python visualize_routes.py 2024-01-30 --no-routing  # Straight lines
 python demo_map_with_routing.py                 # Demo map
 
+# v3.1 utility scripts
+python scripts/seed_affinity_data.py            # Seed demo VehicleHexAffinity + RouteHexStat data
+python scripts/seed_affinity_data.py --dry-run  # Preview without writing
+python scripts/seed_affinity_data.py --clear    # Clear existing data first
+python scripts/backfill_route_signatures.py     # Backfill route_signature from existing RouteStops
+python scripts/backfill_route_signatures.py --dry-run --batch-size 50
+
 # Linting and formatting
 ruff check .
 black .
@@ -132,7 +139,9 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 | `app/models/insertion.py` | `InsertionAttempt` ORM model (v3.1 dynamic insertion) |
 | `app/models/labor.py` | `DriverLaborLog`, `LaborViolation` ORM models (v3.1 labor tracking) |
 | `app/models/driver.py` | Driver model with accumulated weekly/daily minutes + weekly reset |
-| `app/api/v1/endpoints/` | 8 REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel) |
+| `app/services/recommendation/` | `PatternAnalysisService` (H3 affinity scoring) + `RecommendationService` (vehicle ranking orchestration) |
+| `app/services/insertion/` | `IncrementalInsertionService` (dynamic stop insertion with optimistic locking) + `TemperatureProxyModel` |
+| `app/api/v1/endpoints/` | REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel, recommendations, insertion) |
 
 ### Frontend Architecture
 
@@ -186,6 +195,12 @@ All endpoints are mounted under `/api/v1`. OpenAPI docs at `http://localhost:800
 - `POST /api/v1/optimization` - Start async optimization job (returns HTTP 202)
 - `GET /api/v1/optimization/{job_id}` - Get job status/results
 - `GET /api/v1/routes/{route_id}/temperature-analysis` - Temperature predictions per stop
+- `GET /api/v1/recommendations/{route_id}` - Vehicle recommendations for existing route
+- `POST /api/v1/recommendations/preview` - Preview vehicle rankings for coordinates
+- `POST /api/v1/recommendations/{route_id}/accept` - Accept a vehicle recommendation
+- `POST /api/v1/routes/{route_id}/insert` - Insert new stop into active route (optimistic locking)
+- `POST /api/v1/routes/{route_id}/insert/preview` - Preview insertion impact
+- `GET /api/v1/routes/{route_id}/insertion-history` - Insertion attempt audit log
 - CRUD endpoints for `/vehicles`, `/shipments`, `/routes`, `/depots`
 - `POST /api/v1/import/excel` - Upload Excel for batch import
 - `GET /api/v1/import/template` - Download Excel template
@@ -249,7 +264,7 @@ Default login: `admin` / `admin123`
 
 ### Backend Tests (pytest)
 
-266 tests (122 baseline + 144 v3.1), 75% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+293 tests (122 baseline + 171 v3.1), 76% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
 
 Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
 
@@ -266,6 +281,14 @@ Key test infrastructure:
 | `tests/api/` | API endpoint tests using `httpx.AsyncClient` + `ASGITransport` |
 | `tests/unit/test_geo_provider.py` | GeoProvider H3/Geohash tests (35 tests) |
 | `tests/unit/test_v31_models.py` | v3.1 ORM model tests (29 tests) |
+| `tests/unit/test_temperature_proxy.py` | Temperature proxy model accuracy tests (15 tests) |
+| `tests/unit/test_insertion_service.py` | Incremental insertion with CAS concurrency tests |
+| `tests/unit/test_smart_assignment.py` | Pattern analysis affinity + cold start + confidence tests |
+| `tests/api/test_recommendation_api.py` | Recommendation endpoint tests (10 tests) |
+| `tests/api/test_insertion_api.py` | Dynamic insertion API endpoint tests (7 tests) |
+| `tests/unit/test_affinity_pipeline.py` | AffinityUpdateService unit tests: success score, running average (10 tests) |
+| `tests/unit/test_affinity_integration.py` | Affinity pipeline integration: delivery → score change (2 tests) |
+| `tests/api/test_affinity_trigger.py` | Route completion triggers affinity pipeline (2 tests) |
 
 **Critical testing pitfalls:**
 - `app` fixture must use module-level `app` from `app.main`, NOT `create_application()` (which creates a bare app without `/health` and `/` routes)

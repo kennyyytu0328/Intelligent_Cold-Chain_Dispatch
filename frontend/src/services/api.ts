@@ -551,6 +551,21 @@ export interface RecommendationResponse {
   recommendations: VehicleRecommendation[]
 }
 
+// Geocoding API
+export interface GeocodeResult {
+  latitude: number
+  longitude: number
+  display_name: string
+  address: Record<string, string>
+}
+
+export const geocodingAPI = {
+  geocode: async (address: string, country = 'Taiwan'): Promise<GeocodeResult> => {
+    const resp = await api.post<GeocodeResult>('/geocode', { address, country })
+    return resp.data
+  },
+}
+
 export const recommendationAPI = {
   forRoute: async (routeId: string, topK = 5): Promise<RecommendationResponse> => {
     const resp = await api.get(`/recommendations/${routeId}`, { params: { top_k: topK } })

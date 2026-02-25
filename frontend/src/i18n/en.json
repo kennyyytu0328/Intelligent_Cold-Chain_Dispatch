@@ -351,11 +351,15 @@
     "resultsReady": "Recommendations ready",
     "fetchFailed": "Failed to fetch recommendations",
     "noResults": "No matching vehicles found",
-    "enterCoordinates": "Enter Stop Coordinates",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
+    "enterAddresses": "Enter Delivery Addresses",
+    "addressPlaceholder": "Enter address (e.g. 台北101, 信義路五段7號)",
+    "geocode": "Geocode",
+    "geocoding": "Geocoding...",
+    "geocoded": "Resolved",
+    "geocodeFailed": "Geocoding failed for this address",
     "addRow": "Add Stop",
-    "analyze": "Analyze"
+    "analyze": "Analyze",
+    "needAtLeastTwo": "Resolve at least 2 addresses before analyzing"
   },
   "errors": {
     "networkError": "Network connection error",
