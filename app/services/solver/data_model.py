@@ -151,6 +151,10 @@ class VRPDataModel:
     distance_cost_per_km: int = 10
     infeasible_cost: int = 10000000  # Cost for dropping a shipment
 
+    # Labor tracking (driver_id -> accumulated weekly minutes)
+    driver_weekly_cache: dict[str, int] = field(default_factory=dict)
+    driver_daily_cache: dict[str, int] = field(default_factory=dict)
+
     @property
     def num_locations(self) -> int:
         """Number of locations (depot + deliveries)."""

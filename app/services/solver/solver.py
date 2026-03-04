@@ -159,6 +159,7 @@ class ColdChainVRPSolver:
         self,
         data: VRPDataModel,
         plan_date: Optional[date] = None,
+        enable_labor: bool = False,
     ):
         """
         Initialize solver with data model.
@@ -166,9 +167,11 @@ class ColdChainVRPSolver:
         Args:
             data: VRPDataModel with all problem data
             plan_date: Date for the routes (used for timestamps)
+            enable_labor: Enable labor hour soft constraints
         """
         self.data = data
         self.plan_date = plan_date or date.today()
+        self.enable_labor = enable_labor
 
         # OR-Tools objects (initialized in solve())
         self.manager = None
@@ -219,6 +222,10 @@ class ColdChainVRPSolver:
         self._add_capacity_dimensions()
         self._add_time_window_constraints()
         self._add_disjunctions_for_optional_nodes()
+
+        # Add labor constraints (optional)
+        if self.enable_labor:
+            self._add_labor_dimension()
 
         # Set objective
         self._set_objective()
@@ -364,6 +371,73 @@ class ColdChainVRPSolver:
                 priority_multiplier = (100 - node.priority + 1) / 100.0
                 penalty = int(base_penalty * priority_multiplier)
                 self.routing.AddDisjunction([index], penalty)
+
+    def _add_labor_dimension(self):
+        """Add labor hours as a soft-capped dimension to the routing model."""
+        from app.core.config import get_settings
+        settings = get_settings()
+
+        def labor_transit_callback(from_index, to_index):
+            """Returns estimated work minutes for traveling from_index -> to_index."""
+            from_node = self.manager.IndexToNode(from_index)
+            to_node = self.manager.IndexToNode(to_index)
+            travel_minutes = self.data.time_matrix[from_node][to_node]
+            service_minutes = (
+                self.data.nodes[to_node].service_duration
+                if to_node != self.data.depot_index
+                else 0
+            )
+            return travel_minutes + service_minutes
+
+        transit_callback_index = self.routing.RegisterTransitCallback(
+            labor_transit_callback
+        )
+
+        # Add dimension: tracks cumulative work minutes per vehicle
+        self.routing.AddDimension(
+            transit_callback_index,
+            0,           # no slack (work time is always counted)
+            1440,        # max 24h hard cap per route (safety net)
+            True,        # start cumul to zero
+            "LaborMinutes",
+        )
+
+        labor_dimension = self.routing.GetDimensionOrDie("LaborMinutes")
+        weekly_limit = settings.driver_weekly_limit_minutes
+        daily_limit = settings.driver_daily_limit_minutes
+        penalty = self._calculate_labor_penalty()
+
+        for vehicle_idx, vehicle_data in enumerate(self.data.vehicles):
+            driver_id = vehicle_data.driver_id
+            remaining_weekly = max(
+                0,
+                weekly_limit - self.data.driver_weekly_cache.get(driver_id, 0),
+            )
+            remaining_daily = max(
+                0,
+                daily_limit - self.data.driver_daily_cache.get(driver_id, 0),
+            )
+            effective_limit = min(remaining_daily, remaining_weekly)
+
+            end_index = self.routing.End(vehicle_idx)
+            labor_dimension.SetCumulVarSoftUpperBound(
+                end_index,
+                int(effective_limit),
+                penalty,
+            )
+
+    def _calculate_labor_penalty(self) -> int:
+        """Per-minute penalty for exceeding soft labor cap.
+
+        Must be high enough to redistribute work but low enough that the solver
+        still prefers assigning shipments (with overtime) over dropping them.
+        Disjunction penalty for dropping a shipment is ~3x vehicle_fixed_cost.
+        We want: penalty * max_route_minutes < disjunction_penalty.
+        With max route ~120 min: penalty * 120 < 150000 => penalty < 1250.
+        Using 500 per overtime minute gives 60K for a full route — significant
+        but well below the drop-shipment threshold.
+        """
+        return max(500, self.data.vehicle_fixed_cost // 100)
 
     def _set_objective(self):
         """

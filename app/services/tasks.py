@@ -156,6 +156,15 @@ def run_optimization(
 
             logger.info(f"Loaded {len(vehicles)} vehicles and {len(shipments)} shipments")
 
+            # Load driver labor caches if labor dimension is enabled
+            driver_weekly_cache = {}
+            driver_daily_cache = {}
+            enable_labor = settings.enable_labor_dimension
+            if enable_labor:
+                driver_weekly_cache, driver_daily_cache = _load_driver_labor_caches(
+                    session, vehicles
+                )
+
             # Build VRP data model
             data_model = build_vrp_data_model(
                 vehicles=vehicles,
@@ -171,6 +180,10 @@ def run_optimization(
                 planned_departure_time=planned_departure_time,
             )
 
+            # Set labor caches on data model
+            data_model.driver_weekly_cache = driver_weekly_cache
+            data_model.driver_daily_cache = driver_daily_cache
+
             # Start progress updater thread
             stop_event = threading.Event()
             progress_thread = threading.Thread(
@@ -182,7 +195,7 @@ def run_optimization(
 
             # Run solver
             try:
-                solver = ColdChainVRPSolver(data_model, plan_date)
+                solver = ColdChainVRPSolver(data_model, plan_date, enable_labor=enable_labor)
                 result = solver.solve()
             finally:
                 # Stop progress updater thread
@@ -507,3 +520,90 @@ def _update_shipment_statuses(
             )
         )
         session.execute(stmt)
+
+
+def _load_driver_labor_caches(
+    session: Session,
+    vehicles: list[dict],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Load accumulated weekly/daily minutes for drivers assigned to vehicles."""
+    from app.models.driver import Driver
+
+    driver_ids = [v["driver_id"] for v in vehicles if v.get("driver_id")]
+    if not driver_ids:
+        return {}, {}
+
+    result = session.execute(
+        select(Driver.id, Driver.accumulated_weekly_minutes, Driver.accumulated_daily_minutes)
+        .where(Driver.id.in_([UUID(did) for did in driver_ids]))
+    )
+    rows = result.all()
+
+    weekly = {str(row[0]): row[1] for row in rows}
+    daily = {str(row[0]): row[2] for row in rows}
+    return weekly, daily
+
+
+@celery_app.task(
+    bind=True,
+    name="app.services.tasks.reconcile_labor_hours",
+    queue="default",
+    soft_time_limit=1200,
+)
+def reconcile_labor_hours(self=None) -> dict:
+    """
+    Nightly job: Recalculate accumulated minutes from ground truth
+    (driver_labor_logs) and fix any drift from transactional updates.
+    """
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    if not settings.enable_labor_dimension:
+        return {"status": "skipped", "reason": "labor dimension disabled"}
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())  # Monday
+
+    with Session(sync_engine) as session:
+        from sqlalchemy import text
+
+        # Reconcile weekly totals from labor logs
+        session.execute(text("""
+            UPDATE drivers d
+            SET accumulated_weekly_minutes = COALESCE(agg.total, 0),
+                accumulated_daily_minutes = COALESCE(daily.total, 0),
+                weekly_reset_at = CASE
+                    WHEN d.weekly_reset_at IS NULL OR d.weekly_reset_at < :week_start
+                    THEN :week_start
+                    ELSE d.weekly_reset_at
+                END
+            FROM (
+                SELECT driver_id, SUM(drive_time_minutes + service_time_minutes) AS total
+                FROM driver_labor_logs
+                WHERE log_date >= :week_start
+                GROUP BY driver_id
+            ) agg
+            LEFT JOIN (
+                SELECT driver_id, SUM(drive_time_minutes + service_time_minutes) AS total
+                FROM driver_labor_logs
+                WHERE log_date = :today
+                GROUP BY driver_id
+            ) daily ON daily.driver_id = agg.driver_id
+            WHERE d.id = agg.driver_id
+        """), {"week_start": week_start, "today": today})
+
+        # Reset drivers with no logs this week
+        session.execute(text("""
+            UPDATE drivers
+            SET accumulated_weekly_minutes = 0,
+                accumulated_daily_minutes = 0
+            WHERE id NOT IN (
+                SELECT DISTINCT driver_id
+                FROM driver_labor_logs
+                WHERE log_date >= :week_start
+            )
+        """), {"week_start": week_start})
+
+        session.commit()
+
+    return {"status": "completed", "week_start": str(week_start)}

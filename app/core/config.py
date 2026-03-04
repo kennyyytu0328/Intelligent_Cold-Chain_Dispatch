@@ -156,6 +156,29 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Labor Compliance
+    # =========================================================================
+    enable_labor_dimension: bool = Field(
+        default=False,
+        description="Enable labor hour tracking and solver constraints",
+    )
+
+    driver_weekly_limit_minutes: int = Field(
+        default=2880,
+        description="Weekly driver work limit in minutes (48h = Taiwan Labor Standards Act)",
+    )
+
+    driver_daily_limit_minutes: int = Field(
+        default=720,
+        description="Daily driver work limit in minutes (12h including overtime)",
+    )
+
+    labor_warning_threshold: float = Field(
+        default=0.85,
+        description="Warn at this fraction of limit (0.85 = 85%)",
+    )
+
+    # =========================================================================
     # Infeasibility Markers
     # =========================================================================
     infeasible_cost: int = Field(

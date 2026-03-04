@@ -3,7 +3,7 @@ API v1 router aggregation.
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, depots, vehicles, shipments, routes, optimization, geocoding, import_excel, insertion, recommendation
+from app.api.v1.endpoints import auth, depots, vehicles, shipments, routes, optimization, geocoding, import_excel, insertion, recommendation, labor
 
 api_router = APIRouter()
 
@@ -62,4 +62,10 @@ api_router.include_router(
     recommendation.router,
     prefix="/recommendations",
     tags=["Smart Assignment"],
+)
+
+api_router.include_router(
+    labor.router,
+    prefix="/labor",
+    tags=["Labor Compliance"],
 )

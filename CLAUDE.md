@@ -127,7 +127,7 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 | `app/services/solver/solver.py` | `ColdChainVRPSolver` - main OR-Tools wrapper |
 | `app/services/solver/callbacks.py` | OR-Tools callbacks + `TemperatureTracker` |
 | `app/services/solver/data_model.py` | `VRPDataModel`, `build_vrp_data_model()` |
-| `app/services/tasks.py` | Celery task `run_optimization` + sync DB engine setup |
+| `app/services/tasks.py` | Celery tasks: `run_optimization` (solver), `reconcile_labor_hours` (nightly) + sync DB engine |
 | `app/models/enums.py` | Domain enums with thermodynamic constants |
 | `app/core/config.py` | Pydantic Settings (LRU cached via `get_settings()`) |
 | `app/core/celery_app.py` | Celery app, task routing, serialization config |
@@ -141,7 +141,8 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 | `app/models/driver.py` | Driver model with accumulated weekly/daily minutes + weekly reset |
 | `app/services/recommendation/` | `PatternAnalysisService` (H3 affinity scoring) + `RecommendationService` (vehicle ranking orchestration) |
 | `app/services/insertion/` | `IncrementalInsertionService` (dynamic stop insertion with optimistic locking) + `TemperatureProxyModel` |
-| `app/api/v1/endpoints/` | REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel, recommendations, insertion) |
+| `app/services/labor/` | `LaborHoursService` (compliance checks, dispatch recording, override with audit trail) |
+| `app/api/v1/endpoints/` | REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel, recommendations, insertion, labor) |
 
 ### Frontend Architecture
 
@@ -201,6 +202,9 @@ All endpoints are mounted under `/api/v1`. OpenAPI docs at `http://localhost:800
 - `POST /api/v1/routes/{route_id}/insert` - Insert new stop into active route (optimistic locking)
 - `POST /api/v1/routes/{route_id}/insert/preview` - Preview insertion impact
 - `GET /api/v1/routes/{route_id}/insertion-history` - Insertion attempt audit log
+- `GET /api/v1/labor/compliance/summary` - All-driver labor compliance summary
+- `GET /api/v1/labor/compliance/{driver_id}` - Single driver compliance status
+- `POST /api/v1/labor/override` - Override labor violation with audit trail
 - CRUD endpoints for `/vehicles`, `/shipments`, `/routes`, `/depots`
 - `POST /api/v1/import/excel` - Upload Excel for batch import
 - `GET /api/v1/import/template` - Download Excel template
@@ -222,6 +226,9 @@ Key settings:
 - `AVERAGE_SPEED_KMH` (default: 30)
 - Penalty weights: `TEMP_VIOLATION_PENALTY`, `LATE_DELIVERY_PENALTY`, `VEHICLE_FIXED_COST`
 - `INFEASIBLE_COST` (default: 10,000,000) - OR-Tools hard constraint violation penalty
+- `ENABLE_LABOR_DIMENSION` (default: False) - Feature flag for labor hour tracking
+- `DRIVER_WEEKLY_LIMIT_MINUTES` (default: 2880 = 48h), `DRIVER_DAILY_LIMIT_MINUTES` (default: 720 = 12h)
+- `LABOR_WARNING_THRESHOLD` (default: 0.85) - Warn at this fraction of limit
 
 ## Database
 
@@ -264,7 +271,7 @@ Default login: `admin` / `admin123`
 
 ### Backend Tests (pytest)
 
-293 tests (122 baseline + 171 v3.1), 76% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+312 tests (122 baseline + 190 v3.1), 76% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
 
 Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
 
@@ -289,6 +296,10 @@ Key test infrastructure:
 | `tests/unit/test_affinity_pipeline.py` | AffinityUpdateService unit tests: success score, running average (10 tests) |
 | `tests/unit/test_affinity_integration.py` | Affinity pipeline integration: delivery → score change (2 tests) |
 | `tests/api/test_affinity_trigger.py` | Route completion triggers affinity pipeline (2 tests) |
+| `tests/unit/test_labor_service.py` | LaborHoursService: compliance, dispatch recording, override (8 tests) |
+| `tests/api/test_labor_api.py` | Labor compliance API endpoints (4 tests) |
+| `tests/solver/test_labor_dimension.py` | OR-Tools LaborMinutes dimension with soft constraints (5 tests) |
+| `tests/unit/test_labor_reconciliation.py` | Nightly labor reconciliation Celery task (2 tests) |
 
 **Critical testing pitfalls:**
 - `app` fixture must use module-level `app` from `app.main`, NOT `create_application()` (which creates a bare app without `/health` and `/` routes)
