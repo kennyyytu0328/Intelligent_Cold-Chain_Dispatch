@@ -110,6 +110,8 @@
 - [x] Full E2E: import -> optimize -> insert ad-hoc -> check labor -> complete -> verify affinities — `tests/api/test_e2e_flow.py` (10 tests)
 - [x] Load test: 50 concurrent insertion attempts on same route — included in `test_chaos_concurrent.py`
 
+### Step 6 Status: ✅ COMPLETE (349 backend tests, 305 passing non-solver/non-migration)
+
 ---
 
 ## Completed Issues

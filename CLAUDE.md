@@ -139,7 +139,7 @@ Note: Dev compose uses port **5433** for PostgreSQL (not 5432) to avoid conflict
 | `app/models/insertion.py` | `InsertionAttempt` ORM model (v3.1 dynamic insertion) |
 | `app/models/labor.py` | `DriverLaborLog`, `LaborViolation` ORM models (v3.1 labor tracking) |
 | `app/models/driver.py` | Driver model with accumulated weekly/daily minutes + weekly reset |
-| `app/services/recommendation/` | `PatternAnalysisService` (H3 affinity scoring) + `RecommendationService` (vehicle ranking orchestration) |
+| `app/services/recommendation/` | `PatternAnalysisService` (H3 affinity scoring + optional Redis cache) + `RecommendationService` (vehicle ranking orchestration) |
 | `app/services/insertion/` | `IncrementalInsertionService` (dynamic stop insertion with optimistic locking) + `TemperatureProxyModel` |
 | `app/services/labor/` | `LaborHoursService` (compliance checks, dispatch recording, override with audit trail) |
 | `app/api/v1/endpoints/` | REST API modules (auth, vehicles, shipments, routes, optimization, depots, geocoding, import_excel, recommendations, insertion, labor) |
@@ -229,6 +229,7 @@ Key settings:
 - `ENABLE_LABOR_DIMENSION` (default: False) - Feature flag for labor hour tracking
 - `DRIVER_WEEKLY_LIMIT_MINUTES` (default: 2880 = 48h), `DRIVER_DAILY_LIMIT_MINUTES` (default: 720 = 12h)
 - `LABOR_WARNING_THRESHOLD` (default: 0.85) - Warn at this fraction of limit
+- `AFFINITY_CACHE_TTL_SECONDS` (default: 300) - Redis TTL for affinity score cache
 
 ## Database
 
@@ -271,7 +272,7 @@ Default login: `admin` / `admin123`
 
 ### Backend Tests (pytest)
 
-312 tests (122 baseline + 190 v3.1), 76% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
+349 tests (122 baseline + 227 v3.1), 76% overall coverage (97-100% on critical modules). **No PostgreSQL or Redis required** -- all external dependencies are mocked.
 
 Configuration in `pyproject.toml`: `asyncio_mode = "auto"`, coverage source is `app/` (excludes `app/db/*`, `app/core/celery_app.py`, `app/services/tasks.py`).
 
@@ -299,7 +300,11 @@ Key test infrastructure:
 | `tests/unit/test_labor_service.py` | LaborHoursService: compliance, dispatch recording, override (8 tests) |
 | `tests/api/test_labor_api.py` | Labor compliance API endpoints (4 tests) |
 | `tests/solver/test_labor_dimension.py` | OR-Tools LaborMinutes dimension with soft constraints (5 tests) |
-| `tests/unit/test_labor_reconciliation.py` | Nightly labor reconciliation Celery task (2 tests) |
+| `tests/unit/test_labor_reconciliation.py` | Nightly labor reconciliation Celery task + drift correction (6 tests) |
+| `tests/unit/test_affinity_cache.py` | Redis affinity cache hit/miss/error/factory/roundtrip (13 tests) |
+| `tests/unit/test_chaos_concurrent.py` | 50-concurrent load test + chaos insert+affinity gather (5 tests) |
+| `tests/solver/test_impossible_day.py` | Impossible Day: overworked drivers + STRICT SLA + tight capacity (5 tests) |
+| `tests/api/test_e2e_flow.py` | Full E2E flow: optimize → insert → labor → complete → affinity (10 tests) |
 
 **Critical testing pitfalls:**
 - `app` fixture must use module-level `app` from `app.main`, NOT `create_application()` (which creates a bare app without `/health` and `/` routes)
