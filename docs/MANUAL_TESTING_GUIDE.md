@@ -1,6 +1,6 @@
 # ICCDDS Manual Testing Guide
 
-How to manually verify that v3.1 features are working end-to-end. Covers Steps 1–5.
+How to manually verify that v3.1 features are working end-to-end. Covers all Steps 1–6 (v3.1 complete).
 
 **Default credentials:** `admin` / `admin123`
 **API base:** `http://localhost:8000/api/v1`
@@ -404,7 +404,185 @@ Or via Flower UI at `http://localhost:5555` → Tasks → `reconcile_labor_hours
 
 ---
 
-## Step 8 — Temperature Analysis
+## Step 8 — Redis Affinity Cache (Step 6 Feature)
+
+The `PatternAnalysisService` caches affinity scores in Redis (TTL 300s) to avoid repeated DB queries for the same vehicle+route combination. Redis is already running via `docker-compose.dev.yml`.
+
+### Verify cache is populated
+
+After calling the recommendations endpoint, check Redis for the cached key:
+
+```bash
+# Connect to Redis CLI (dev compose exposes port 6379)
+redis-cli -p 6379
+
+# List all affinity cache keys
+KEYS affinity:*
+
+# Inspect a specific key (shows JSON with affinity_score, confidence, cell_details)
+GET affinity:<vehicle_uuid>:<12-char-hash>
+
+# Check TTL (should be ≤ 300 seconds)
+TTL affinity:<vehicle_uuid>:<12-char-hash>
+```
+
+### Verify cache hit speeds up second call
+
+```bash
+ROUTE_ID="<route_id>"
+
+# First call — cache miss, hits DB
+time curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/recommendations/$ROUTE_ID
+
+# Second call within 300s — cache hit, faster
+time curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/recommendations/$ROUTE_ID
+```
+
+The second call should be noticeably faster (no DB round-trips for affinity queries).
+
+### Verify graceful degradation when Redis is unavailable
+
+```bash
+# Stop Redis
+docker-compose -f docker-compose.dev.yml stop redis
+
+# Recommendations should still work (falls back to DB, logs a warning)
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/recommendations/$ROUTE_ID
+
+# Expected: 200 OK with valid rankings (no crash)
+# API logs should show: "Redis cache error" warning
+
+# Restart Redis
+docker-compose -f docker-compose.dev.yml start redis
+```
+
+### Verify cache expiry
+
+```bash
+# After 300 seconds, the key should be gone
+redis-cli -p 6379 TTL affinity:<vehicle_uuid>:<12-char-hash>
+# Returns -2 when expired
+```
+
+---
+
+## Step 9 — Full E2E Dispatch Day Chain (Step 6 Feature)
+
+A consolidated walkthrough of the complete dispatch workflow from start to finish. Combines all previous steps into one sequence.
+
+### 1. Import data (if starting fresh)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/import/excel \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@ICCDDS_Import_Template.xlsx"
+```
+
+### 2. Run optimization
+
+```bash
+JOB=$(curl -s -X POST http://localhost:8000/api/v1/optimization \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"plan_date": "2024-02-01", "parameters": {}}')
+
+JOB_ID=$(echo $JOB | python -c "import sys,json; print(json.load(sys.stdin)['job_id'])")
+echo "Job ID: $JOB_ID"
+```
+
+### 3. Poll until COMPLETED
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/optimization/$JOB_ID
+# Repeat until "status": "COMPLETED"
+```
+
+Grab a route ID from the result:
+```bash
+ROUTE_ID="<route_id_from_result>"
+```
+
+### 4. Insert an ad-hoc stop
+
+```bash
+# Get a PENDING shipment ID first
+SHIPMENT_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/shipments?status=PENDING" \
+  | python -c "import sys,json; d=json.load(sys.stdin); print(d['items'][0]['id'])")
+
+# Preview insertion
+curl -X POST "http://localhost:8000/api/v1/routes/$ROUTE_ID/insert/preview" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"shipment_id\": \"$SHIPMENT_ID\"}"
+
+# Confirm insertion
+curl -X POST "http://localhost:8000/api/v1/routes/$ROUTE_ID/insert" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"shipment_id\": \"$SHIPMENT_ID\"}"
+
+# Verify route version incremented
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/routes/$ROUTE_ID/insertion-history
+```
+
+### 5. Check labor compliance
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/labor/compliance/summary
+# Expect all drivers at status: "OK" (fresh data) or "WARNING"/"VIOLATION" if limits approached
+```
+
+### 6. Complete the route → triggers affinity pipeline
+
+```bash
+curl -X PATCH "http://localhost:8000/api/v1/routes/$ROUTE_ID/status?status=COMPLETED" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Expected response: `{ "id": "...", "status": "COMPLETED" }`
+
+### 7. Verify affinities were updated
+
+```bash
+# Via DB
+psql -h localhost -p 5433 -U iccdds -d iccdds -c \
+  "SELECT h3_index, affinity_score, sample_size FROM vehicle_hex_affinities ORDER BY updated_at DESC LIMIT 5;"
+
+# Via recommendations API (should show updated scores)
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/recommendations/$ROUTE_ID
+```
+
+### 8. Verify reconciliation corrects drift (optional)
+
+```bash
+# Manually drift a driver's accumulated minutes to a wrong value
+psql -h localhost -p 5433 -U iccdds -d iccdds -c \
+  "UPDATE drivers SET accumulated_weekly_minutes = 9999 WHERE name = 'Alice';"
+
+# Run the reconciliation task
+python -c "
+from app.services.tasks import reconcile_labor_hours
+result = reconcile_labor_hours()
+print(result)
+"
+
+# Verify the value was corrected from labor logs
+psql -h localhost -p 5433 -U iccdds -d iccdds -c \
+  "SELECT name, accumulated_weekly_minutes FROM drivers WHERE name = 'Alice';"
+# Should now show the correct value from driver_labor_logs, not 9999
+```
+
+---
+
+## Step 10 — Temperature Analysis
 
 For any completed or active route, inspect per-stop temperature predictions:
 
@@ -429,3 +607,7 @@ Response: predicted temperature at each stop, including transit drift, door-open
 | `409 Conflict` on insert | Version mismatch (optimistic locking) — re-fetch route and retry |
 | DB connect fails in test script | Wrong port — dev compose uses **5433**, not 5432 |
 | Frontend shows no routes on Map | Navigate to Optimization page first, or check the plan date |
+| `KEYS affinity:*` returns nothing | Redis cache not yet populated — call recommendations endpoint first |
+| Recommendations work but Redis keys missing | `AFFINITY_CACHE_TTL_SECONDS=0` or redis_client not configured — check env |
+| Affinity scores not updated after COMPLETED | Route has no `route_signature` — run `python scripts/backfill_route_signatures.py` |
+| Reconciliation doesn't fix drift | `ENABLE_LABOR_DIMENSION=false` — enable flag and restart API |
