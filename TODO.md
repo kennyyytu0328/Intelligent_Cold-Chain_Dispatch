@@ -1,8 +1,8 @@
 # ICCDDS TODO List
 
-## Current Focus: Step 6 — Integration and Polish
+## Current Focus: Step 6 — Integration and Polish ✅
 
-> Step 5 (Labor Hours) is fully complete and manually verified end-to-end (2026-03-04). All 3 API endpoints tested, violation detection confirmed, override audit trail verified. Next: Step 6 integration tests.
+> Step 6 complete (2026-03-05). All 6 integration tasks implemented: Impossible Day solver tests, chaos/load tests (50 concurrent insertions), Redis affinity caching, reconciliation drift correction tests, full E2E API flow test, and load test. Total: 37 new tests. Suite: 305 passing.
 
 ---
 
@@ -103,12 +103,12 @@
 
 ### Step 6 — Integration and Polish (Weeks 9-10)
 
-- [ ] "Impossible Day" scenario test (all drivers overworked, routes full, STRICT SLA)
-- [ ] Chaos test: concurrent insertions + optimization + affinity recalculation
-- [ ] Redis caching for affinity scores
-- [ ] Verify nightly reconciliation corrects accumulated drift
-- [ ] Full E2E: import -> optimize -> insert ad-hoc -> check labor -> complete -> verify affinities
-- [ ] Load test: 50 concurrent insertion attempts on same route
+- [x] "Impossible Day" scenario test (all drivers overworked, routes full, STRICT SLA) — `tests/solver/test_impossible_day.py` (5 tests)
+- [x] Chaos test: concurrent insertions + optimization + affinity recalculation — `tests/unit/test_chaos_concurrent.py` (5 tests)
+- [x] Redis caching for affinity scores — `app/services/recommendation/pattern_analysis.py` + `tests/unit/test_affinity_cache.py` (13 tests)
+- [x] Verify nightly reconciliation corrects accumulated drift — `tests/unit/test_labor_reconciliation.py` extended (4 new tests)
+- [x] Full E2E: import -> optimize -> insert ad-hoc -> check labor -> complete -> verify affinities — `tests/api/test_e2e_flow.py` (10 tests)
+- [x] Load test: 50 concurrent insertion attempts on same route — included in `test_chaos_concurrent.py`
 
 ---
 

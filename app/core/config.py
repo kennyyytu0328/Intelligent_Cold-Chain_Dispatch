@@ -179,6 +179,14 @@ class Settings(BaseSettings):
     )
 
     # =========================================================================
+    # Caching
+    # =========================================================================
+    affinity_cache_ttl_seconds: int = Field(
+        default=300,
+        description="TTL in seconds for Redis-cached affinity scores (5 minutes)",
+    )
+
+    # =========================================================================
     # Infeasibility Markers
     # =========================================================================
     infeasible_cost: int = Field(
