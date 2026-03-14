@@ -134,6 +134,15 @@
 
 ---
 
+## Recent Changes
+
+### Time Windows Made Optional ✅ (2026-03-14)
+- [x] `ShipmentCreate.time_windows` changed from required to optional (defaults to empty list)
+- [x] Empty time windows = "deliver anytime" (solver defaults to full-day window 00:00–24:00)
+- [x] ORM model helper methods (`is_time_valid`, `get_earliest_start`, `get_latest_end`) handle empty gracefully
+- [x] Excel import allows blank time window columns (removed validation error)
+- [x] Template instructions updated to reflect optional time windows
+
 ## Future Enhancements
 
 - [ ] Add "No violations" success message when optimization succeeds without issues

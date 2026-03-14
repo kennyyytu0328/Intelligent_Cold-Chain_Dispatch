@@ -188,6 +188,13 @@ Constants are defined in `app/models/enums.py`:
 - **STRICT**: Hard constraint - shipment must be visited within time window
 - **STANDARD**: Soft constraint - can be dropped with penalty based on priority
 
+### Time Windows
+
+- Time windows are **optional** — omitting them (empty list `[]`) means "deliver anytime"
+- When empty, the solver defaults to a full-day window `(0, 1440)` minutes (00:00–24:00)
+- Up to 10 time windows per shipment (OR relationship — satisfy any one)
+- Excel import allows blank time window columns
+
 ## API Endpoints
 
 All endpoints are mounted under `/api/v1`. OpenAPI docs at `http://localhost:8000/api/v1/docs`.

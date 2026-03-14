@@ -74,12 +74,11 @@ class ShipmentCreate(ShipmentBase):
     order_number: str = Field(..., min_length=1, max_length=50)
     customer_id: Optional[UUID] = None
 
-    # Time windows (at least one required)
+    # Time windows (optional — empty means "deliver anytime")
     time_windows: list[TimeWindowSchema] = Field(
-        ...,
-        min_length=1,
+        default_factory=list,
         max_length=10,
-        description="Valid delivery time windows (OR relationship)",
+        description="Valid delivery time windows (OR relationship). Empty = no time constraint.",
     )
 
     # SLA & Temperature
@@ -116,6 +115,8 @@ class ShipmentCreate(ShipmentBase):
         cls, v: list[TimeWindowSchema]
     ) -> list[TimeWindowSchema]:
         """Warn if time windows overlap (not an error, just unusual)."""
+        if not v:
+            return v
         # Sort by start time for easier checking
         sorted_windows = sorted(v, key=lambda tw: tw.start)
         # Could add overlap detection here if needed
@@ -138,7 +139,7 @@ class ShipmentUpdate(BaseSchema):
     latitude: Optional[Decimal] = Field(None, ge=-90, le=90)
     longitude: Optional[Decimal] = Field(None, ge=-180, le=180)
 
-    time_windows: Optional[list[TimeWindowSchema]] = Field(None, min_length=1)
+    time_windows: Optional[list[TimeWindowSchema]] = Field(None, max_length=10)
 
     sla_tier: Optional[SLATier] = None
     temp_limit_upper: Optional[Decimal] = None
@@ -165,7 +166,7 @@ class ShipmentResponse(ShipmentBase):
     # Location (geo_location is handled separately)
     geo_location: Optional[Any] = Field(None, exclude=True)  # Exclude raw geometry
 
-    # Time windows
+    # Time windows (empty list means "deliver anytime")
     time_windows: list[TimeWindowSchema]
 
     # SLA & Temperature

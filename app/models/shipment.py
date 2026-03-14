@@ -138,10 +138,13 @@ class Shipment(BaseModel):
     # Time Windows (Multiple Time Windows Support)
     # =========================================================================
     # JSONB array: [{"start": "08:00", "end": "10:00"}, ...]
+    # Empty list means "deliver anytime" (solver defaults to full-day window)
     time_windows: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         nullable=False,
-        comment="Array of valid delivery time windows (OR relationship)",
+        default=list,
+        server_default="'[]'",
+        comment="Array of valid delivery time windows (OR relationship). Empty = anytime.",
     )
 
     # =========================================================================
@@ -324,21 +327,28 @@ class Shipment(BaseModel):
             delivery_time: Proposed delivery time
 
         Returns:
-            True if time falls within any window
+            True if time falls within any window (or always True if no windows set)
         """
-        for tw in self.get_time_windows():
+        windows = self.get_time_windows()
+        if not windows:
+            return True  # No time constraint — any time is valid
+        for tw in windows:
             if tw.contains(delivery_time):
                 return True
         return False
 
     def get_earliest_start(self) -> time:
-        """Get the earliest start time across all windows."""
+        """Get the earliest start time across all windows (00:00 if none)."""
         windows = self.get_time_windows()
+        if not windows:
+            return time(0, 0)
         return min(tw.start_time for tw in windows)
 
     def get_latest_end(self) -> time:
-        """Get the latest end time across all windows."""
+        """Get the latest end time across all windows (23:59 if none)."""
         windows = self.get_time_windows()
+        if not windows:
+            return time(23, 59)
         return max(tw.end_time for tw in windows)
 
     # =========================================================================

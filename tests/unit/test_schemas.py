@@ -54,16 +54,28 @@ class TestShipmentCreate:
         )
         assert shipment.order_number == "ORD-001"
 
-    def test_empty_time_windows_rejected(self):
-        with pytest.raises(ValidationError):
-            ShipmentCreate(
-                order_number="ORD-001",
-                delivery_address="123 Test St",
-                latitude=Decimal("25.033"),
-                longitude=Decimal("121.565"),
-                weight=Decimal("50.0"),
-                time_windows=[],
-            )
+    def test_empty_time_windows_allowed(self):
+        """Empty time windows means 'deliver anytime' — should be valid."""
+        shipment = ShipmentCreate(
+            order_number="ORD-001",
+            delivery_address="123 Test St",
+            latitude=Decimal("25.033"),
+            longitude=Decimal("121.565"),
+            weight=Decimal("50.0"),
+            time_windows=[],
+        )
+        assert shipment.time_windows == []
+
+    def test_no_time_windows_defaults_to_empty(self):
+        """Omitting time_windows should default to empty list."""
+        shipment = ShipmentCreate(
+            order_number="ORD-001",
+            delivery_address="123 Test St",
+            latitude=Decimal("25.033"),
+            longitude=Decimal("121.565"),
+            weight=Decimal("50.0"),
+        )
+        assert shipment.time_windows == []
 
     def test_temp_lower_gte_upper_rejected(self):
         with pytest.raises(ValidationError):

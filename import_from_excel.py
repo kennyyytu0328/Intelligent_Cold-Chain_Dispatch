@@ -96,10 +96,10 @@ def import_shipments(df: pd.DataFrame, verbose: bool = True) -> dict:
             if pd.isna(row.get('order_number')):
                 continue
 
-            # 構建時間窗
+            # 構建時間窗（選填 — 空白表示不限時間）
             time_windows = []
 
-            # 第一個時間窗（必填）
+            # 第一個時間窗（選填）
             if not pd.isna(row.get('time_window_1_start')) and not pd.isna(row.get('time_window_1_end')):
                 time_windows.append({
                     "start": str(row['time_window_1_start']).strip(),
@@ -115,9 +115,6 @@ def import_shipments(df: pd.DataFrame, verbose: bool = True) -> dict:
                         "start": tw2_start,
                         "end": tw2_end,
                     })
-
-            if not time_windows:
-                raise ValueError("至少需要一個時間窗")
 
             # 構建請求資料
             shipment_data = {
