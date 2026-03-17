@@ -160,6 +160,8 @@ Frontend uses path alias `@/` → `./src/` (configured in both tsconfig and vite
 
 **Optimization → Map data flow**: OptimizationPage fetches route data via `routesAPI.getForMap()` on completion and stores it in `optimizationStore` (including `planDate`). MapPage reads from the store but can also independently re-fetch routes if the store has `taskId` + `planDate` but empty `routes` (e.g., if the initial fetch failed silently). MapPage shows an empty state with navigation to `/optimization` when no result exists.
 
+**Optimization results UX**: When optimization completes, the results card shows violation details (temperature violations, unassigned shipments) if any exist. When there are **no violations**, a green success banner ("No Constraint Violations") is displayed instead. Both EN and zh-TW i18n keys: `optimization.noViolations`, `optimization.noViolationsDesc`.
+
 ### Thermodynamic Model
 
 Three formulas predict temperature changes along routes:

@@ -145,7 +145,7 @@
 
 ## Future Enhancements
 
-- [ ] Add "No violations" success message when optimization succeeds without issues
+- [x] Add "No violations" success message when optimization succeeds without issues ✅ (2026-03-17)
 - [ ] Add route details panel showing each vehicle's stops
 - [ ] Export optimization results to Excel/PDF
 - [ ] Real-time vehicle tracking simulation

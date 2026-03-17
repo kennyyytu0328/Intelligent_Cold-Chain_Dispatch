@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Play, Loader2, Map, Warehouse, Navigation, Calendar, Clock, AlertTriangle, Thermometer, PackageX, PackageCheck, Info, RefreshCw } from 'lucide-react'
+import { Play, Loader2, Map, Warehouse, Navigation, Calendar, Clock, AlertTriangle, Thermometer, PackageX, PackageCheck, Info, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -569,7 +569,23 @@ export default function OptimizationPage() {
               </div>
             )}
 
-            {/* Violations Section */}
+            {/* Violations / Success Section */}
+            {currentResult.status === 'completed' && violations &&
+              violations.summary.total_temp_violations === 0 && violations.summary.total_unassigned === 0 && (
+                <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 p-4 mt-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div>
+                      <h3 className="font-semibold text-green-700 dark:text-green-300">
+                        {t('optimization.noViolations', 'No Constraint Violations')}
+                      </h3>
+                      <p className="text-sm text-green-600 dark:text-green-400 mt-0.5">
+                        {t('optimization.noViolationsDesc', 'All shipments assigned within temperature and time window constraints.')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             {currentResult.status === 'completed' && violations && (
               (violations.summary.total_temp_violations > 0 || violations.summary.total_unassigned > 0) && (
                 <div className="space-y-4 mt-4">

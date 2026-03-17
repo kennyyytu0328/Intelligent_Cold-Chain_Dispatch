@@ -225,7 +225,9 @@
     "noShipmentsFound": "找不到訂單資料。請先匯入或新增訂單。",
     "pendingCount": "{{count}} 筆待配送訂單可供優化",
     "goToShipments": "前往訂單管理",
-    "checkingShipments": "檢查訂單中..."
+    "checkingShipments": "檢查訂單中...",
+    "noViolations": "無違規事項",
+    "noViolationsDesc": "所有訂單皆在溫度與時間窗口限制內完成分配。"
   },
   "excel": {
     "title": "Excel 匯入",

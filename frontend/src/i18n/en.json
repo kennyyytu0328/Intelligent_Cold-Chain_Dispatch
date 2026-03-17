@@ -225,7 +225,9 @@
     "noShipmentsFound": "No shipments found. Please import or add shipments first.",
     "pendingCount": "{{count}} pending shipment(s) ready for optimization",
     "goToShipments": "Go to Shipments",
-    "checkingShipments": "Checking shipments..."
+    "checkingShipments": "Checking shipments...",
+    "noViolations": "No Constraint Violations",
+    "noViolationsDesc": "All shipments assigned within temperature and time window constraints."
   },
   "excel": {
     "title": "Excel Import",
