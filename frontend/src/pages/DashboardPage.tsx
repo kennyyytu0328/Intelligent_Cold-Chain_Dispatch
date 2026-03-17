@@ -121,7 +121,7 @@ export default function DashboardPage() {
           {t('dashboard.title')}
         </h1>
         <p className="text-Gray-600">
-          Monitor your cold-chain fleet and shipments in real-time
+          {t('dashboard.subtitle')}
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default function DashboardPage() {
           title={t('dashboard.totalVehicles')}
           value={vehiclesArray.length}
           icon={<Truck className="h-4 w-4" />}
-          description={`${activeVehicles} active`}
+          description={t('dashboard.activeCount', { count: activeVehicles })}
           variant="primary"
         />
         <StatCard
@@ -144,7 +144,7 @@ export default function DashboardPage() {
           title={t('dashboard.pendingShipments')}
           value={pendingShipments}
           icon={<Clock className="h-4 w-4" />}
-          description="Awaiting dispatch"
+          description={t('dashboard.awaitingDispatch')}
           variant={pendingShipments > 10 ? 'warning' : 'default'}
         />
         <StatCard
@@ -152,7 +152,7 @@ export default function DashboardPage() {
           value={deliveredToday}
           icon={<CheckCircle className="h-4 w-4" />}
           variant="success"
-          trend={{ value: 12, label: 'vs yesterday' }}
+          trend={{ value: 12, label: t('dashboard.vsYesterday') }}
         />
       </div>
 
@@ -163,7 +163,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium">
-                Temperature Status
+                {t('dashboard.temperatureStatus')}
               </CardTitle>
               <Thermometer className="h-4 w-4 text-cold" />
             </div>
@@ -173,21 +173,21 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-success" />
-                  <span className="text-sm">Normal Range</span>
+                  <span className="text-sm">{t('dashboard.normalRange')}</span>
                 </div>
                 <span className="text-sm font-medium">{vehiclesArray.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-warning" />
-                  <span className="text-sm">Warning</span>
+                  <span className="text-sm">{t('common.warning')}</span>
                 </div>
                 <span className="text-sm font-medium">0</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-destructive" />
-                  <span className="text-sm">Critical</span>
+                  <span className="text-sm">{t('dashboard.critical')}</span>
                 </div>
                 <span className="text-sm font-medium">0</span>
               </div>
@@ -253,24 +253,24 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm">API Server</span>
+                <span className="text-sm">{t('dashboard.apiServer')}</span>
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                  <span className="text-xs text-success font-medium">Online</span>
+                  <span className="text-xs text-success font-medium">{t('dashboard.online')}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Optimization Engine</span>
+                <span className="text-sm">{t('dashboard.optimizationEngine')}</span>
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                  <span className="text-xs text-success font-medium">Ready</span>
+                  <span className="text-xs text-success font-medium">{t('dashboard.ready')}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Cold-Chain Monitor</span>
+                <span className="text-sm">{t('dashboard.coldChainMonitor')}</span>
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                  <span className="text-xs text-success font-medium">Active</span>
+                  <span className="text-xs text-success font-medium">{t('dashboard.active')}</span>
                 </div>
               </div>
             </div>

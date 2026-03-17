@@ -93,7 +93,7 @@ export default function MainLayout() {
             <div className="flex items-center gap-3">
               <img
                 src="/assets/logo.jpg"
-                alt="Go Go Fresh"
+                alt={t('auth.logoAlt')}
                 className="h-10 w-auto object-contain rounded"
               />
               <div className="hidden sm:block">
@@ -139,10 +139,10 @@ export default function MainLayout() {
         <div className="absolute bottom-0 left-0 right-0 border-t p-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Thermometer className="h-4 w-4 text-cold" />
-            <span>Cold Chain Monitoring</span>
+            <span>{t('nav.coldChainMonitoring')}</span>
             <div className="ml-auto flex items-center gap-1">
               <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-success">Active</span>
+              <span className="text-success">{t('nav.monitorActive')}</span>
             </div>
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function MainLayout() {
           {/* Brand text for desktop */}
           <div className="hidden lg:flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">
-              Intelligent Cold-Chain Dynamic Dispatch System
+              {t('nav.appNameFull')}
             </span>
           </div>
 
@@ -223,7 +223,7 @@ export default function MainLayout() {
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-2 py-1.5">
                   <p className="text-sm font-medium">{user?.username}</p>
-                  <p className="text-xs text-muted-foreground">Fleet Manager</p>
+                  <p className="text-xs text-muted-foreground">{t('nav.fleetManager')}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">

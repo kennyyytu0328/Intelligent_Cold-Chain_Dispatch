@@ -98,7 +98,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
             <img
               src="/assets/logo.jpg"
-              alt="GoGo Fresh"
+              alt={t('auth.logoAlt')}
               className="h-24 w-auto mx-auto rounded-lg shadow-md"
             />
           </div>
@@ -157,7 +157,7 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-4 border-t">
             <p className="text-center text-sm text-muted-foreground">
-              User Login :
+              {t('auth.userLoginHint')}
             </p>
             <div className="mt-2 flex justify-center gap-4 text-xs">
               <code className="px-2 py-1 bg-muted rounded">username</code>

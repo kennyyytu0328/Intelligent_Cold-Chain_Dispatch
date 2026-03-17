@@ -303,7 +303,7 @@ export default function RecommendationPage() {
                     <SelectContent>
                       {routes.map((r) => (
                         <SelectItem key={r.id} value={r.id}>
-                          {r.route_code} — {r.total_stops} stops, {r.driver_name || 'No driver'}
+                          {r.route_code} — {r.total_stops} {t('common.stops')}, {r.driver_name || t('common.noDriver')}
                         </SelectItem>
                       ))}
                     </SelectContent>

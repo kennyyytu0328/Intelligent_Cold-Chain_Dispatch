@@ -353,7 +353,7 @@ export default function MapPage() {
                     <Marker position={depot} icon={depotIcon}>
                       <Popup>
                         <div className="text-center">
-                          <strong>Depot / Warehouse</strong>
+                          <strong>{t('map.depotLabel')}</strong>
                           <br />
                           <span className="text-sm text-gray-500">
                             {depot[0].toFixed(4)}, {depot[1].toFixed(4)}

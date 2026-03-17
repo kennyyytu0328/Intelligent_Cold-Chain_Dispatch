@@ -26,7 +26,9 @@
     "export": "Export",
     "import": "Import",
     "download": "Download",
-    "upload": "Upload"
+    "upload": "Upload",
+    "noDriver": "No driver",
+    "stops": "stops"
   },
   "auth": {
     "login": "Login",
@@ -41,7 +43,9 @@
     "accountDisabled": "Your account has been disabled. Please contact support.",
     "networkError": "Cannot connect to server. Please check your connection.",
     "serverError": "Server error. Please try again later.",
-    "logoutSuccess": "Logged out successfully"
+    "logoutSuccess": "Logged out successfully",
+    "logoAlt": "GoGo Fresh",
+    "userLoginHint": "User Login :"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -53,7 +57,11 @@
     "map": "Map View",
     "insertion": "Insert Shipment",
     "recommendation": "Smart Assign",
-    "settings": "Settings"
+    "settings": "Settings",
+    "coldChainMonitoring": "Cold Chain Monitoring",
+    "monitorActive": "Active",
+    "appNameFull": "Intelligent Cold-Chain Dynamic Dispatch System",
+    "fleetManager": "Fleet Manager"
   },
   "dashboard": {
     "title": "System Overview",
@@ -62,7 +70,20 @@
     "pendingShipments": "Pending Shipments",
     "completedToday": "Completed Today",
     "recentActivity": "Recent Activity",
-    "systemStatus": "System Status"
+    "systemStatus": "System Status",
+    "subtitle": "Monitor your cold-chain fleet and shipments in real-time",
+    "activeCount": "{{count}} active",
+    "awaitingDispatch": "Awaiting dispatch",
+    "vsYesterday": "vs yesterday",
+    "temperatureStatus": "Temperature Status",
+    "normalRange": "Normal Range",
+    "critical": "Critical",
+    "apiServer": "API Server",
+    "online": "Online",
+    "optimizationEngine": "Optimization Engine",
+    "ready": "Ready",
+    "coldChainMonitor": "Cold-Chain Monitor",
+    "active": "Active"
   },
   "vehicles": {
     "title": "Vehicle Management",
@@ -287,7 +308,8 @@
     "goToOptimization": "Go to Optimization",
     "fetchingRouteData": "Fetching route data...",
     "fetchError": "Failed to load route data",
-    "retry": "Retry"
+    "retry": "Retry",
+    "depotLabel": "Depot / Warehouse"
   },
   "settings": {
     "title": "System Settings",

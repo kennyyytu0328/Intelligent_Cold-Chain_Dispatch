@@ -26,7 +26,9 @@
     "export": "匯出",
     "import": "匯入",
     "download": "下載",
-    "upload": "上傳"
+    "upload": "上傳",
+    "noDriver": "無駕駛員",
+    "stops": "站"
   },
   "auth": {
     "login": "登入",
@@ -41,7 +43,9 @@
     "accountDisabled": "您的帳號已被停用，請聯繫系統管理員。",
     "networkError": "無法連接到伺服器，請檢查網路連線。",
     "serverError": "伺服器錯誤，請稍後再試。",
-    "logoutSuccess": "已成功登出"
+    "logoutSuccess": "已成功登出",
+    "logoAlt": "GoGo Fresh",
+    "userLoginHint": "使用者登入："
   },
   "nav": {
     "dashboard": "儀表板",
@@ -53,7 +57,11 @@
     "map": "地圖檢視",
     "insertion": "動態插單",
     "recommendation": "智慧派車",
-    "settings": "設定"
+    "settings": "設定",
+    "coldChainMonitoring": "冷鏈監控",
+    "monitorActive": "運作中",
+    "appNameFull": "智慧冷鏈動態配送調度系統",
+    "fleetManager": "車隊管理員"
   },
   "dashboard": {
     "title": "系統總覽",
@@ -62,7 +70,20 @@
     "pendingShipments": "待配送訂單",
     "completedToday": "今日完成",
     "recentActivity": "最近活動",
-    "systemStatus": "系統狀態"
+    "systemStatus": "系統狀態",
+    "subtitle": "即時監控冷鏈車隊與配送狀態",
+    "activeCount": "{{count}} 運作中",
+    "awaitingDispatch": "等待派送",
+    "vsYesterday": "與昨日相比",
+    "temperatureStatus": "溫度狀態",
+    "normalRange": "正常範圍",
+    "critical": "異常",
+    "apiServer": "API 伺服器",
+    "online": "在線",
+    "optimizationEngine": "優化引擎",
+    "ready": "就緒",
+    "coldChainMonitor": "冷鏈監控",
+    "active": "運作中"
   },
   "vehicles": {
     "title": "車輛管理",
@@ -287,7 +308,8 @@
     "goToOptimization": "前往優化頁面",
     "fetchingRouteData": "載入路線資料中...",
     "fetchError": "載入路線資料失敗",
-    "retry": "重試"
+    "retry": "重試",
+    "depotLabel": "倉庫 / 配送中心"
   },
   "settings": {
     "title": "系統設定",
